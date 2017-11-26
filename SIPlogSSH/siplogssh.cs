@@ -364,11 +364,11 @@ public class siplogssh
                 int currentYPos = Console.CursorTop;
                 ConsoleColor currentBack = Console.BackgroundColor;
                 ConsoleColor currentFore = Console.ForegroundColor;
-                Console.SetCursorPosition(0, 0);
+                if (!DisplaySsh) { Console.SetCursorPosition(0, 0); }
                 Console.BackgroundColor = ConsoleColor.Black;
                 Console.ForegroundColor = ConsoleColor.White;
                 Console.Write(ex.Message);
-                Console.SetCursorPosition(currentXPos, currentYPos);
+                if (!DisplaySsh) { Console.SetCursorPosition(currentXPos, currentYPos); }
                 Console.BackgroundColor = currentBack;
                 Console.ForegroundColor = currentFore;
             }
