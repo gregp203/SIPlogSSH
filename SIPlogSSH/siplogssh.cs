@@ -20,55 +20,34 @@ public class siplogssh
     static readonly object _locker = new object();
     int callLegsDisplayedCountPrev;
     int CallInvitesPrev;
-    bool notifychange = false;
     bool filterChange = false;
     string Server;
     int Port;   
     string Username;
     bool DisplaySsh = true;
-    bool DisplaySshPrev = false;
+    bool TermChange = false;
+    SshClient client;
+    bool IsRunning = true;
 
-
-    static void Main()
-    {
-        
+    static void Main(String[] arg)
+    {        
         try
         {
             Console.Clear();
             if (Console.BufferWidth < 200) { Console.BufferWidth = 200; }
-            Console.BackgroundColor = ConsoleColor.Black;
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine(@"           ____    ______   ____    ___                       ");
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine(@"          /\  _`\ /\__  _\ /\  _`\ /\_ \                      ");
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(@"          \ \,\L\_\/_/\ \/ \ \ \L\ \//\ \     ___      __     ");
-            Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine(@"           \/_\__ \  \ \ \  \ \ ,__/ \ \ \   / __`\  /'_ `\   ");
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine(@"             /\ \L\ \ \_\ \__\ \ \/   \_\ \_/\ \L\ \/\ \L\ \  ");
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine(@"             \ `\____\/\_____\\ \_\   /\____\ \____/\ \____ \ ");
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine(@"              \/_____/\/_____/ \/_/   \/____/\/___/  \/___L\ \ ");
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(@"                                                       /\____/ ");
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(@"                                                       \_/__/  ");
+            Console.ForegroundColor = ConsoleColor.DarkGreen;
+            Console.WriteLine(@"     _____ _____ ____  _              _____ _____ _    _");
+            Console.WriteLine(@"    / ____|_   _| __ \| |            / ____/ ____| |  | |");
+            Console.WriteLine(@"   | (___   | | | __) | | ___   __ _| (___| (___ | |__| |");
+            Console.WriteLine(@"    \___ \  | | | ___/| |/ _ \ / _` |\___ \\___ \|  __  |");
+            Console.WriteLine(@"    ____) |_| |_| |   | | (_) | (_| |____) |___) | |  | |");
+            Console.WriteLine(@"   |_____/|_____|_|   |_|\___/ \__, |_____/_____/|_|  |_|");
+            Console.WriteLine(@"                                __/ |");
+            Console.WriteLine(@"                               |___/");
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("Version 1.5                                          Greg Palmer");
-            Console.WriteLine();
+            Console.WriteLine("Version 1                                     Greg Palmer");
 
             siplogssh findMessagesObj = new siplogssh();
-            /*Console.Write("Enter Server : ");
-            findMessagesObj.Server = Console.ReadLine();
-            Console.WriteLine("Port");
-            findMessagesObj.Port = Int32.Parse(Console.ReadLine());
-            Console.WriteLine("Username");
-            findMessagesObj.Username = Console.ReadLine();
-            Console.WriteLine("Password");
-            findMessagesObj.Password = Console.ReadLine();*/
-
             Thread FindMsgThread = new Thread(() => { findMessagesObj.FindMessages(); });      //find SIP messages output to List<string[]> with 
             FindMsgThread.Start();
 
@@ -116,12 +95,11 @@ public class siplogssh
                 "\nTargetSite ---\n{0}", ex.TargetSite);
         }
     }
-
     
     void FindMessages()
     {
         Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
-        string requestRgxStr = @"[A-Z]{3}(?<=[A-Z]{3}).*";
+        string requestRgxStr = @"ACK.*SIP\/2\.0|BYE.*SIP\/2\.0|CANCEL.*SIP\/2\.0|INFO.*SIP\/2\.0|INVITE.*SIP\/2\.0|MESSAGE.*SIP\/2\.0|NOTIFY.*SIP\/2\.0|OPTIONS.*SIP\/2\.0|PRACK.*SIP\/2\.0|PUBLISH.*SIP\/2\.0|REFER.*SIP\/2\.0|REGISTER.*SIP\/2\.0|SUBSCRIBE.*SIP\/2\.0|UPDATE.*SIP\/2\.0|SIP\/2\.0 \d{3}.*";
         string callidRgxStr = @"(?<!-.{8})(?<=Call-ID:).*";
         string toRgxStr = @"(?<=To:).*";
         string fromRgxStr = @"(?<=From:).*";
@@ -145,16 +123,21 @@ public class siplogssh
         Regex occasRgx = new Regex(occasRgxStr);
         long filelinenum = 0;
         bool tryBannerAgain = true;
-        bool tryConnectAgain = true;
+        bool tryConnectAgain = true;        
 
-        while (tryConnectAgain)
+        while (IsRunning)
         {
             while (tryBannerAgain)
             {
-                Console.Write("Enter Server : ");
+                Console.Write("Enter Host : ");
                 Server = Console.ReadLine();
-                Console.Write("Enter Port : ");
-                Port = Int32.Parse(Console.ReadLine());
+                string PortStr;
+                do
+                {
+                    Console.Write("Enter Port : ");
+                    PortStr = Console.ReadLine();
+                } while (!Regex.IsMatch(PortStr, @"^\d+$"));
+                Port = Int32.Parse(PortStr);
                 Console.Write("Enter User Name : ");
                 Username = Console.ReadLine();
                 try //try to connect just to get banner
@@ -167,101 +150,53 @@ public class siplogssh
                     tryBannerAgain = false;
                     clientBanner.Disconnect();
                 }
-                catch 
+                catch (Exception ex)
                 {
-                    tryBannerAgain = false;
+                    if (ex.Message.Contains("No suitable authentication method found"))
+                    {
+                        tryBannerAgain = false;
+                    }
+                    else
+                    {
+                        tryBannerAgain = true;
+                        Console.WriteLine(ex.Message);
+                    }
                 }
             }
-            try
+            if (tryConnectAgain)
             {
-                Console.Write("Enter Password : ");
-                PasswordAuthenticationMethod pauth = new PasswordAuthenticationMethod(Username, Console.ReadLine());
-                ConnectionInfo connectionInfo = new ConnectionInfo(Server, 22, Username, pauth);
-                SshClient client = new SshClient(connectionInfo);
-                client.Connect();
-                tryConnectAgain = false;
-                string reply = string.Empty;
-                ShellStream shellStream = client.CreateShellStream("dumb", 80, 24, 800, 600, 1024);
-                reply = shellStream.Expect(new Regex(@":.*>#"), new TimeSpan(0, 0, 3));
-                StreamReader sread = new StreamReader(shellStream);
-                string readconsole;
-                string line;
-                do
+                try
                 {
-                    while (!DisplaySsh || !Console.KeyAvailable )
+                    Console.Write("Enter Password : ");
+                    PasswordAuthenticationMethod pauth = new PasswordAuthenticationMethod(Username, Console.ReadLine());
+                    ConnectionInfo connectionInfo = new ConnectionInfo(Server, 22, Username, pauth);
+                    client = new SshClient(connectionInfo);
+                    client.Connect();
+                    tryConnectAgain = false;
+                    string reply = string.Empty;
+                    ShellStream shellStream = client.CreateShellStream("dumb", 80, 24, 800, 600, 1024);
+                    reply = shellStream.Expect(new Regex(@":.*>#"), new TimeSpan(0, 0, 3));
+                    StreamReader sread = new StreamReader(shellStream);
+                    string readconsole;
+                    string line;
+                    do
                     {
-                        if (!String.IsNullOrEmpty(line = sread.ReadLine()))
+                        while (!DisplaySsh || !Console.KeyAvailable)
                         {
-                            if (DisplaySsh) { Console.WriteLine(line); }
-                            lock (_locker) { streamData.Add(line); }
-                            //if (filelinenum % 10000 == 0) { Console.WriteLine(filelinenum); Console.CursorTop -= 1; }
-                            while (!string.IsNullOrEmpty(line) && beginmsg.IsMatch(line))
+                            if (!String.IsNullOrEmpty(line = sread.ReadLine()))
                             {
-                                String[] outputarray = new String[17];
-                                outputarray[0] = (streamData.Count-1).ToString(); // get the index of the start of the msg 
-                                outputarray[1] = Regex.Match(line, @"(\d{4}-\d{2}-\d{2})").ToString();                             //date                                 
-                                outputarray[2] = Regex.Match(line, @"(\d{2}:\d{2}:\d{2}.\d{6})").ToString();                       //time            
-                                outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})").ToString();      //src IP                                                                        
-                                outputarray[4] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[1].ToString();      //dst IP           
-
-                                line = sread.ReadLine();
                                 if (DisplaySsh) { Console.WriteLine(line); }
-                                if (line == null) { break; }
-                                if (!String.IsNullOrEmpty(line))
-                                {
-                                    lock (_locker) { streamData.Add(line); }
-                                }
+                                lock (_locker) { streamData.Add(line); }
                                 //if (filelinenum % 10000 == 0) { Console.WriteLine(filelinenum); Console.CursorTop -= 1; }
-                                filelinenum++;
-
-                                //check to match these only once. no need match a field if it is already found
-                                bool sipTwoDotOfound = false;
-                                bool callidFound = false;
-                                bool toFound = false;
-                                bool fromFound = false;
-                                bool SDPFopund = false;
-                                bool SDPIPFound = false;
-                                bool mAudioFound = false;
-                                bool uaservfound = false;
-
-                                while (!beginmsg.IsMatch(line)) //untill the begining of the next msg
+                                while (!string.IsNullOrEmpty(line) && beginmsg.IsMatch(line))
                                 {
-                                    if (!sipTwoDotOfound && line.Contains("SIP/2.0") && !line.Contains("Via:"))
-                                    {
-                                        outputarray[5] = requestRgx.Match(line).ToString().Trim();
-                                        sipTwoDotOfound = true;
-                                    }
-                                    else if (!callidFound && callidRgx.IsMatch(line)) { outputarray[6] = callidRgx.Match(line).ToString().Trim(); callidFound = true; } // get call-id                    
-                                    else if (!toFound && toRgx.IsMatch(line)) { outputarray[7] = toRgx.Match(line).ToString().Trim(); toFound = true; } // get to:                    
-                                    else if (!fromFound && fromRgx.IsMatch(line)) { outputarray[8] = fromRgx.Match(line).ToString().Trim(); fromFound = true; } //get from                    
-                                    else if (!SDPFopund && line.Contains("Content-Type: application/sdp")) { outputarray[11] = " SDP"; SDPFopund = true; }
-                                    else if (!SDPIPFound && SDPIPRgx.IsMatch(line)) { outputarray[13] = SDPIPRgx.Match(line).ToString(); SDPIPFound = true; }
-                                    else if (!mAudioFound && mAudioRgx.IsMatch(line))
-                                    {
-                                        outputarray[14] = portRgx.Match(line).ToString().Trim();
-                                        outputarray[15] = codecRgx.Match(line).ToString().Trim();
-                                        if (outputarray[15] == "0") { outputarray[15] = "G711u"; }
-                                        else if (outputarray[15] == "8") { outputarray[15] = "G711a"; }
-                                        else if (outputarray[15] == "9") { outputarray[15] = "G722"; }
-                                        else if (outputarray[15] == "18") { outputarray[15] = "G729"; }
-                                        else { outputarray[15] = "rtp-payload type:" + outputarray[15]; }
+                                    String[] outputarray = new String[17];
+                                    outputarray[0] = (streamData.Count - 1).ToString(); // get the index of the start of the msg 
+                                    outputarray[1] = Regex.Match(line, @"(\d{4}-\d{2}-\d{2})").ToString();                             //date                                 
+                                    outputarray[2] = Regex.Match(line, @"(\d{2}:\d{2}:\d{2}.\d{6})").ToString();                       //time            
+                                    outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})").ToString();      //src IP                                                                        
+                                    outputarray[4] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[1].ToString();      //dst IP           
 
-                                        mAudioFound = true;
-                                    }
-                                    else if (!uaservfound && uaRgx.IsMatch(line))
-                                    {
-                                        outputarray[16] = uaRgx.Match(line).ToString().Trim();
-                                        uaservfound = true;
-                                    }
-                                    else if (!uaservfound && serverRgx.IsMatch(line))
-                                    {
-                                        outputarray[16] = serverRgx.Match(line).ToString().Trim();
-                                        uaservfound = true;
-                                    }
-                                    else if (!uaservfound && occasRgx.IsMatch(line))
-                                    {
-                                        outputarray[16] = "occas";
-                                    }
                                     line = sread.ReadLine();
                                     if (DisplaySsh) { Console.WriteLine(line); }
                                     if (line == null) { break; }
@@ -271,32 +206,95 @@ public class siplogssh
                                     }
                                     //if (filelinenum % 10000 == 0) { Console.WriteLine(filelinenum); Console.CursorTop -= 1; }
                                     filelinenum++;
-                                }
-                                outputarray[9] = (streamData.Count - 1).ToString(); // get the index of the end of the msg*/
-                                outputarray[10] = "ConsoleColor.Gray";
-                                outputarray[12] = "stream"; //add file name to dataset 
-                                if (outputarray[5] == null) { outputarray[5] = "Invalid SIP characters"; }
-                                if (sipTwoDotOfound)
-                                {
-                                    lock (_locker) { messages.Add(outputarray); }
-                                    bool getcallid = false;
-                                    if (outputarray[3] != outputarray[4])
+
+                                    //check to match these only once. no need match a field if it is already found
+                                    bool sipTwoDotOfound = false;
+                                    bool callidFound = false;
+                                    bool toFound = false;
+                                    bool fromFound = false;
+                                    bool SDPFopund = false;
+                                    bool SDPIPFound = false;
+                                    bool mAudioFound = false;
+                                    bool uaservfound = false;
+
+                                    while (!beginmsg.IsMatch(line)) //untill the begining of the next msg
                                     {
-                                        if (outputarray[5].Contains("INVITE") || outputarray[5].Contains("NOTIFY"))
+                                        if (!sipTwoDotOfound && line.Contains("SIP/2.0") && !line.Contains("Via:"))
                                         {
-                                            if (CallInvites == 0) { DisplaySsh = false; }
-                                            if (callLegs.Count > 0) // if it is not the first message
+                                            outputarray[5] = requestRgx.Match(line).ToString().Trim();
+                                            sipTwoDotOfound = true;
+                                        }
+                                        else if (!callidFound && callidRgx.IsMatch(line)) { outputarray[6] = callidRgx.Match(line).ToString().Trim(); callidFound = true; } // get call-id                    
+                                        else if (!toFound && toRgx.IsMatch(line)) { outputarray[7] = toRgx.Match(line).ToString().Trim(); toFound = true; } // get to:                    
+                                        else if (!fromFound && fromRgx.IsMatch(line)) { outputarray[8] = fromRgx.Match(line).ToString().Trim(); fromFound = true; } //get from                    
+                                        else if (!SDPFopund && line.Contains("Content-Type: application/sdp")) { outputarray[11] = " SDP"; SDPFopund = true; }
+                                        else if (!SDPIPFound && SDPIPRgx.IsMatch(line)) { outputarray[13] = SDPIPRgx.Match(line).ToString(); SDPIPFound = true; }
+                                        else if (!mAudioFound && mAudioRgx.IsMatch(line))
+                                        {
+                                            outputarray[14] = portRgx.Match(line).ToString().Trim();
+                                            outputarray[15] = codecRgx.Match(line).ToString().Trim();
+                                            if (outputarray[15] == "0") { outputarray[15] = "G711u"; }
+                                            else if (outputarray[15] == "8") { outputarray[15] = "G711a"; }
+                                            else if (outputarray[15] == "9") { outputarray[15] = "G722"; }
+                                            else if (outputarray[15] == "18") { outputarray[15] = "G729"; }
+                                            else { outputarray[15] = "rtp-payload type:" + outputarray[15]; }
+
+                                            mAudioFound = true;
+                                        }
+                                        else if (!uaservfound && uaRgx.IsMatch(line))
+                                        {
+                                            outputarray[16] = uaRgx.Match(line).ToString().Trim();
+                                            uaservfound = true;
+                                        }
+                                        else if (!uaservfound && serverRgx.IsMatch(line))
+                                        {
+                                            outputarray[16] = serverRgx.Match(line).ToString().Trim();
+                                            uaservfound = true;
+                                        }
+                                        else if (!uaservfound && occasRgx.IsMatch(line))
+                                        {
+                                            outputarray[16] = "occas";
+                                        }
+                                        line = sread.ReadLine();
+                                        if (DisplaySsh) { Console.WriteLine(line); }
+                                        if (line == null) { break; }
+                                        if (!String.IsNullOrEmpty(line))
+                                        {
+                                            lock (_locker) { streamData.Add(line); }
+                                        }
+                                        //if (filelinenum % 10000 == 0) { Console.WriteLine(filelinenum); Console.CursorTop -= 1; }
+                                        filelinenum++;
+                                    }
+                                    outputarray[9] = (streamData.Count - 1).ToString(); // get the index of the end of the msg*/
+                                    outputarray[10] = "ConsoleColor.Gray";
+                                    outputarray[12] = "stream"; //add file name to dataset 
+                                    if (outputarray[5] == null) { outputarray[5] = "Invalid SIP characters"; }
+                                    if (sipTwoDotOfound)
+                                    {
+                                        lock (_locker) { messages.Add(outputarray); }
+                                        bool getcallid = false;
+                                        if (outputarray[3] != outputarray[4])
+                                        {
+                                            if (outputarray[5].Contains("INVITE") || outputarray[5].Contains("NOTIFY"))
                                             {
-                                                //check if call-id was not already gotten
-                                                for (int j = 0; j < callLegs.Count; j++)
+                                                if (CallInvites == 0) { DisplaySsh = false; }
+                                                if (callLegs.Count > 0) // if it is not the first message
+                                                {
+                                                    //check if call-id was not already gotten
+                                                    for (int j = 0; j < callLegs.Count; j++)
+                                                    {
+                                                        getcallid = true;
+
+                                                        if (callLegs[j][4] == outputarray[6]) // check if re-invite
+                                                        {
+                                                            getcallid = false;
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                                else
                                                 {
                                                     getcallid = true;
-
-                                                    if (callLegs[j][4] == outputarray[6]) // check if re-invite
-                                                    {
-                                                        getcallid = false;
-                                                        break;
-                                                    }
                                                 }
                                                 if (getcallid == true)
                                                 {
@@ -319,65 +317,79 @@ public class siplogssh
                                                     }
                                                 }
                                             }
-                                            else
-                                            {
-
-                                                String[] arrayout = new String[10];
-                                                arrayout[0] = outputarray[1];//  date [0]
-                                                arrayout[1] = outputarray[2];//  time [1]
-                                                arrayout[2] = outputarray[7];//  To: [2]
-                                                arrayout[3] = outputarray[8];//  From: [3]
-                                                arrayout[4] = outputarray[6];//  Call-ID [4]
-                                                arrayout[5] = " ";                //  selected [5]  " " = not selected
-                                                arrayout[6] = outputarray[3];//  src IP [6]
-                                                arrayout[7] = outputarray[4];//  dst ip [7]
-                                                arrayout[8] = "filtered";
-                                                if (outputarray[5].Contains("NOTIFY")) { arrayout[9] = "notify"; } else { arrayout[9] = "invite"; }
-                                                if (outputarray[6] != null)
-                                                {
-                                                    lock (_locker) { callLegs.Add(arrayout); }
-                                                    if (outputarray[5].Contains("INVITE")) { CallInvites++; }
-                                                }
-                                            }
                                         }
                                     }
                                 }
+                                filelinenum++;
                             }
-                            filelinenum++;
                         }
-                    }
-                    readconsole = Console.ReadLine();
-                    if (String.IsNullOrEmpty(readconsole)) { readconsole = "\n"; }
-                    if (readconsole == "+++") { readconsole = "\x03"; }
-                    if (readconsole == "@@@")
+                        readconsole = Console.ReadLine();
+                        if (String.IsNullOrEmpty(readconsole)) { readconsole = "\n"; }
+                        if (readconsole == "+++") { readconsole = "\x03"; }
+                        if (readconsole == "@@@")
+                        {
+                            Console.SetCursorPosition(0, 0);
+                            TermChange = true;
+                            DisplaySsh = false;
+                        }
+                        else
+                        {
+                            shellStream.WriteLine(readconsole);
+                        }
+                    } while (client.IsConnected);
+                    int currentXPosA = Console.CursorLeft;
+                    int currentYPosA = Console.CursorTop;
+                    ConsoleColor currentBackA = Console.BackgroundColor;
+                    ConsoleColor currentForeA = Console.ForegroundColor;
+                    Console.SetCursorPosition(0, 0);
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.White;
+                    if (!client.IsConnected) { Console.WriteLine("Disconected"); }
+                    Console.SetCursorPosition(currentXPosA, currentYPosA);
+                    Console.BackgroundColor = currentBackA;
+                    Console.ForegroundColor = currentForeA;
+                }
+                catch (Exception ex)
+                {
+                    int currentXPos = Console.CursorLeft;
+                    int currentYPos = Console.CursorTop;
+                    ConsoleColor currentBack = Console.BackgroundColor;
+                    ConsoleColor currentFore = Console.ForegroundColor;
+                    if (!DisplaySsh) { Console.SetCursorPosition(0, 0); }
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.White;
+                    if (DisplaySsh) { Console.Write(ex.Message); }
+                    if (!DisplaySsh)
                     {
-                        filterChange = true;
-                        DisplaySshPrev = true;
-                        DisplaySsh = false;
+                        Console.Write(ex.Message.Split('\n')[0]);
+                        Console.SetCursorPosition(currentXPos, currentYPos);
                     }
-                    shellStream.WriteLine(readconsole);
-                } while (client.IsConnected);
+                    Console.BackgroundColor = currentBack;
+                    Console.ForegroundColor = currentFore;
+                }
             }
-            catch (Exception ex)
+            if (DisplaySsh)
             {
-                int currentXPos = Console.CursorLeft;
-                int currentYPos = Console.CursorTop;
-                ConsoleColor currentBack = Console.BackgroundColor;
-                ConsoleColor currentFore = Console.ForegroundColor;
-                if (!DisplaySsh) { Console.SetCursorPosition(0, 0); }
-                Console.BackgroundColor = ConsoleColor.Black;
-                Console.ForegroundColor = ConsoleColor.White;
-                Console.Write(ex.Message);
-                if (!DisplaySsh) { Console.SetCursorPosition(currentXPos, currentYPos); }
-                Console.BackgroundColor = currentBack;
-                Console.ForegroundColor = currentFore;
+                Console.WriteLine("would you like to attempt to connect again? yes/no");
+                if (Console.ReadLine().ToLower().Contains("y"))
+                {
+                    tryConnectAgain = true;
+                    tryBannerAgain = true;
+                }
+                else
+                {
+                    Console.SetCursorPosition(0, 0);
+                    TermChange = true;
+                    DisplaySsh = false;                    
+                }
             }
         }
     }
     
     void callDisplay(int position)
     {
-        if (!filterChange && !notifychange && callLegsDisplayedCountPrev != 0 && callLegsDisplayed.Count > callLegsDisplayedCountPrev)
+        //if the following conditions true , just add the calls to the bottom of the screen without redrawing
+        if (!TermChange && !filterChange && callLegsDisplayedCountPrev != 0 && callLegsDisplayed.Count > callLegsDisplayedCountPrev)
         {
             if (callLegsDisplayed.Count > Console.WindowHeight)
             {
@@ -388,12 +400,11 @@ public class siplogssh
             {
                 callline(callLegsDisplayed[i], i);
             }
-            callLegsDisplayedCountPrev = callLegsDisplayed.Count;
-            
+            callLegsDisplayedCountPrev = callLegsDisplayed.Count;            
         }
         else
         {
-            notifychange = false;
+            filterChange = false;
             callLegsDisplayedCountPrev = callLegsDisplayed.Count;
             Console.Clear();
             Console.WindowWidth = Math.Min(161, Console.LargestWindowWidth);
@@ -404,9 +415,12 @@ public class siplogssh
             {
                 Console.BufferHeight = 10 + callLegsDisplayed.Count;
             }
-
-            Console.WriteLine();
-            Console.WriteLine("[Spacebar] to select calls. [Enter] for call flow diagram. [F] to filter the calls. [S] to search all SIP msgs. [Esc] to quit. [N] to toggle NOTIFYs");
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.White;
+            if (client.IsConnected) { Console.WriteLine("Connected"); }else { Console.WriteLine("Disconnected"); }
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Gray;            
+            Console.WriteLine("[Spacebar] to select calls [Enter] for call flow [F] to filter [S] to search all SIP msgs [Esc] to quit [N] to toggle NOTIFYs [T] for terminal");
             Console.WriteLine("{0,-2} {1,-6} {2,-10} {3,-12} {4,-45} {5,-45} {6,-16} {7,-16}", "*", "index", "date", "time", "from:", "to:", "src IP", "dst IP");
             Console.WriteLine(new String('-', 160));
             int i = 0;
@@ -426,8 +440,7 @@ public class siplogssh
         callline(callLegsDisplayed[position], position);
         Console.SetCursorPosition(0, position + 4);
         Console.BackgroundColor = ConsoleColor.Black;
-        Console.ForegroundColor = ConsoleColor.Gray;
-        
+        Console.ForegroundColor = ConsoleColor.Gray;        
     }
 
     static void callline(string[] callLeg, int indx)
@@ -484,7 +497,7 @@ public class siplogssh
             }
         }        
     }
-
+    
     void callSelect(List<string[]> callLegs, List<string[]> messages)
     {
         int selected = 0;
@@ -492,31 +505,26 @@ public class siplogssh
         int position = 0;
         bool notify = false;
         String[] filter = new String[20];   
-        int callLegsCountPrev = 0;
-
-        //long tick = 0;
+        int callLegsCountPrev = 0;        
         while (CallInvites <1)
         {
            //do nothing
         }
-        
         CallFilter(filter,notify);
         callDisplay(position);
-        
         ConsoleKeyInfo keypressed;
         while (done == false)
         {
             while (DisplaySsh || !Console.KeyAvailable )
             {
-                if ((!DisplaySsh && (CallInvites > CallInvitesPrev))|| DisplaySshPrev)
+                if ((!DisplaySsh && (CallInvites > CallInvitesPrev))|| TermChange)
                 {
-                    DisplaySshPrev = false;
                     CallInvitesPrev = CallInvites;
-                    callLegsCountPrev = callLegs.Count;
-                    DisplaySshPrev = true;
+                    callLegsCountPrev = callLegs.Count;                    
                     CallFilter(filter, notify);
-                    callDisplay(position);                    
-                }
+                    callDisplay(position);
+                    TermChange = false;
+                }                
             }
             keypressed = Console.ReadKey(true);
             if (keypressed.Key == ConsoleKey.DownArrow)
@@ -655,8 +663,10 @@ public class siplogssh
                 if (selected > 0)
                 {
                     msgselect(selectMessages(messages, callLegsDisplayed));   //select SIP message from the call flow diagram                        
+                    filterChange = true;
                     CallFilter(filter, notify);
-                    callDisplay(position); 
+                    callDisplay(position);
+                    
                 }
             }
             if (keypressed.Key == ConsoleKey.Escape)
@@ -669,15 +679,17 @@ public class siplogssh
                 switch (Console.ReadKey(true).Key)
                 {
                     case ConsoleKey.Y:
-                        Console.Clear(); System.Environment.Exit(0);
+                        IsRunning = false;
+                        Console.Clear();
+                        System.Environment.Exit(0);
                         break;
                     case ConsoleKey.N:
+                        filterChange = true;
                         CallFilter(filter, notify);
-                        callDisplay(position);
+                        callDisplay(position);                        
                         break;
                 }
             }
-
             if (keypressed.Key == ConsoleKey.S)
             {
                 do
@@ -685,8 +697,9 @@ public class siplogssh
                     listallmsg(messages);
                     Console.WriteLine("Press any key to search SIP messages again or press [esc] to quit");
                 } while (Console.ReadKey(true).Key != ConsoleKey.Escape);
+                filterChange = true;
                 CallFilter(filter, notify);
-                callDisplay(position);
+                callDisplay(position);                
             }
             if (keypressed.Key == ConsoleKey.F)
             {
@@ -724,7 +737,7 @@ public class siplogssh
             {
                 position = 0;
                 if (notify == false) { notify = true; } else { notify = false; }
-                notifychange = true;
+                filterChange = true;
                 CallFilter(filter, notify);
                 callDisplay(position);
             }
@@ -735,11 +748,8 @@ public class siplogssh
                 {
                     Console.WriteLine(streamData[i]);
                 }
-                DisplaySsh = true;
-                DisplaySshPrev = false;
+                DisplaySsh = true;                
             }
-
-
         }        
     }
 
@@ -827,7 +837,6 @@ public class siplogssh
                     break;
                 }
             }
-
             Console.Write(ua + new String(' ', 29 - ua.Length));
         }
         Console.WriteLine();
@@ -917,7 +926,6 @@ public class siplogssh
         List<string> ips = new List<string>();
         ips = getips(selectedmessages); //get the IP addresses of the selected SIP messages for the top of the screen        
         int position = 0;
-
         Console.BackgroundColor = ConsoleColor.Black;
         Console.ForegroundColor = ConsoleColor.Gray;
         if (selectedmessages.Count > Console.BufferHeight) { Console.BufferHeight = Math.Min(selectedmessages.Count + 20, Int16.MaxValue - 1); }
@@ -926,7 +934,6 @@ public class siplogssh
         Console.SetCursorPosition(0, 3);
         messageline(selectedmessages[0], ips, true);
         Console.CursorTop -= 1;
-
         bool done = false;
         while (done == false)
         {
@@ -1108,7 +1115,6 @@ public class siplogssh
             switch (keypressed.Key)
             {
                 case ConsoleKey.DownArrow:
-
                     if (position < filtered.Count - 1)
                     {
                         Console.BackgroundColor = ConsoleColor.Black;
@@ -1125,7 +1131,6 @@ public class siplogssh
                     break;
 
                 case ConsoleKey.PageDown:
-
                     if (position + 40 < filtered.Count - 1)
                     {
                         Console.BackgroundColor = ConsoleColor.Black;
