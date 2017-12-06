@@ -1062,17 +1062,7 @@ public class Siplogssh
                 filterChange = true;
                 method = "register";
                 ClearSelectedCalls();
-                selected = 0;                
-                CallFilter(filter, notify, method);
-                /*if (callLegsDisplayed.Count == 0)
-                {
-                    Console.WriteLine(@"  +---------------------------------------------------------+\  ");
-                    Console.WriteLine(@"  | No registrations were found. Press any key to continue  | | ");
-                    Console.WriteLine(@"  +---------------------------------------------------------+ | ");
-                    Console.WriteLine(@"   \_________________________________________________________\| ");
-                    Console.ReadKey();
-                    method = prevMethod;
-                } */                               
+                selected = 0;
                 position = 0;
                 CallFilter(filter, notify, method);
                 CallDisplay(position);
@@ -1086,16 +1076,6 @@ public class Siplogssh
                 ClearSelectedCalls();
                 selected = 0;
                 method = "subscribe";
-                CallFilter(filter, notify, method);
-                if (callLegsDisplayed.Count == 0)
-                {
-                    Console.WriteLine(@"  +---------------------------------------------------------+\  ");
-                    Console.WriteLine(@"  | No subscriptions were found. Press any key to continue  | | ");
-                    Console.WriteLine(@"  +---------------------------------------------------------+ | ");
-                    Console.WriteLine(@"   \_________________________________________________________\| ");
-                    Console.ReadKey();
-                    method = prevMethod;
-                }
                 position = 0;
                 CallFilter(filter, notify, method);
                 CallDisplay(position);
@@ -1109,19 +1089,6 @@ public class Siplogssh
                 method = "invite";
                 selected = 0;
                 ClearSelectedCalls();
-                {
-                    CallFilter(filter, notify, method);
-                    if (callLegsDisplayed.Count == 0)
-                    {
-                        Console.WriteLine(@"  +-------------------------------------------------+\  ");
-                        Console.WriteLine(@"  | No calls were found. Press any key to continue  | | ");
-                        Console.WriteLine(@"  +-------------------------------------------------+ | ");
-                        Console.WriteLine(@"   \_________________________________________________\| ");
-                        Console.ReadKey();
-                        method = prevMethod;
-                    }
-                }
-                while (callLegsDisplayed.Count == 0) ;
                 position = 0;
                 CallFilter(filter, notify, method);
                 CallDisplay(position);
