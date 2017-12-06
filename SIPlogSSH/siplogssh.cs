@@ -107,58 +107,34 @@ public class Siplogssh
     int[] fakeCursor = new int[2];       
     int numSelectdIps;
     int flowWidth;
+    bool IncludePorts;
 
     static void Main(String[] arg)
     {
         try
         {
             Siplogssh sIPlogSSHObj = new Siplogssh();
-            sIPlogSSHObj.requestRgx = new Regex(sIPlogSSHObj.requestRgxStr); //I probably should have made a constructor that did these
-            sIPlogSSHObj.callidRgx = new Regex(sIPlogSSHObj.callidRgxStr);
-            sIPlogSSHObj.toRgx = new Regex(sIPlogSSHObj.toRgxStr);
-            sIPlogSSHObj.fromRgx = new Regex(sIPlogSSHObj.fromRgxStr);
-            sIPlogSSHObj.uaRgx = new Regex(sIPlogSSHObj.uaRgxStr);
-            sIPlogSSHObj.serverRgx = new Regex(sIPlogSSHObj.serverRgxStr);
-            sIPlogSSHObj.portRgx = new Regex(sIPlogSSHObj.portRgxStr);
-            sIPlogSSHObj.codecRgx = new Regex(sIPlogSSHObj.codecRgxStr);
-            sIPlogSSHObj.SDPIPRgx = new Regex(sIPlogSSHObj.SDPIPRgxStr);
-            sIPlogSSHObj.mAudioRgx = new Regex(sIPlogSSHObj.mAudioRgxStr);
-            sIPlogSSHObj.occasRgx = new Regex(sIPlogSSHObj.occasRgxStr);
+            
             if (Console.BufferWidth < 200) { Console.BufferWidth = 200; }
             
-            sIPlogSSHObj.ClearConsole();
-                 
-            sIPlogSSHObj.statusBarTxtClr = AttrColor.White;
-            sIPlogSSHObj.statusBarBkgrdClr = AttrColor.Black;
-            sIPlogSSHObj.headerTxtClr = AttrColor.Gray;
-            sIPlogSSHObj.headerBkgrdClr = AttrColor.DarkBlue;
-            sIPlogSSHObj.fieldConsoleTxtClr = ConsoleColor.Gray;
-            sIPlogSSHObj.fieldConsoleBkgrdClr = ConsoleColor.DarkBlue;
-            sIPlogSSHObj.fieldConsoleSelectClr = ConsoleColor.Red;
-            sIPlogSSHObj.fieldConsoleTxtInvrtClr = ConsoleColor.DarkBlue; 
-            sIPlogSSHObj.fieldConsoleBkgrdInvrtClr = ConsoleColor.Gray; 
-            sIPlogSSHObj.fieldAttrTxtClr = AttrColor.Gray;
-            sIPlogSSHObj.fieldAttrTxtInvrtClr = AttrColor.DarkBlue;
-            sIPlogSSHObj.fieldAttrBkgrdClr = AttrColor.DarkBlue;
-            sIPlogSSHObj.fieldAttrBkgrdInvrtClr = AttrColor.Gray;
-            sIPlogSSHObj.fieldAttrSelectClr = AttrColor.Red;
-            sIPlogSSHObj.footerTxtClr = AttrColor.Gray;
-            sIPlogSSHObj.footerBkgrdClr = AttrColor.DarkBlue;
-            sIPlogSSHObj.fakeCursor[0] = 0;
-            sIPlogSSHObj.fakeCursor[1] = 0;
+            Console.WriteLine();
+            Console.WriteLine(@"     _____ _____ ____  _              _____ _____ _    _  ");
+            Console.WriteLine(@"    / ____|_   _| __ \| |            / ____/ ____| |  | | ");
+            Console.WriteLine(@"   | (___   | | | __) | | ___   __ _| (___| (___ | |__| | ");
+            Console.WriteLine(@"    \___ \  | | | ___/| |/ _ \ / _` |\___ \\___ \|  __  | ");
+            Console.WriteLine(@"    ____) |_| |_| |   | | (_) | (_| |____) |___) | |  | | ");
+            Console.WriteLine(@"   |_____/|_____|_|   |_|\___/ \__, |_____/_____/|_|  |_| ");
+            Console.WriteLine(@"                                __/ |                     ");
+            Console.WriteLine(@"                               |___/                      ");
+            Console.WriteLine(@"   Version 1                                   Greg Palmer");
+           
 
-            sIPlogSSHObj.WriteLineConsole("",sIPlogSSHObj.statusBarTxtClr, sIPlogSSHObj.statusBarBkgrdClr);
-            sIPlogSSHObj.WriteLineConsole(@"     _____ _____ ____  _              _____ _____ _    _  ", sIPlogSSHObj.fieldAttrTxtClr, sIPlogSSHObj.fieldAttrBkgrdClr);
-            sIPlogSSHObj.WriteLineConsole(@"    / ____|_   _| __ \| |            / ____/ ____| |  | | ", sIPlogSSHObj.fieldAttrTxtClr, sIPlogSSHObj.fieldAttrBkgrdClr);
-            sIPlogSSHObj.WriteLineConsole(@"   | (___   | | | __) | | ___   __ _| (___| (___ | |__| | ", sIPlogSSHObj.fieldAttrTxtClr, sIPlogSSHObj.fieldAttrBkgrdClr);
-            sIPlogSSHObj.WriteLineConsole(@"    \___ \  | | | ___/| |/ _ \ / _` |\___ \\___ \|  __  | ", sIPlogSSHObj.fieldAttrTxtClr, sIPlogSSHObj.fieldAttrBkgrdClr);
-            sIPlogSSHObj.WriteLineConsole(@"    ____) |_| |_| |   | | (_) | (_| |____) |___) | |  | | ", sIPlogSSHObj.fieldAttrTxtClr, sIPlogSSHObj.fieldAttrBkgrdClr);
-            sIPlogSSHObj.WriteLineConsole(@"   |_____/|_____|_|   |_|\___/ \__, |_____/_____/|_|  |_| ", sIPlogSSHObj.fieldAttrTxtClr, sIPlogSSHObj.fieldAttrBkgrdClr);
-            sIPlogSSHObj.WriteLineConsole(@"                                __/ |                     ", sIPlogSSHObj.fieldAttrTxtClr, sIPlogSSHObj.fieldAttrBkgrdClr);
-            sIPlogSSHObj.WriteLineConsole(@"                               |___/                      ", sIPlogSSHObj.fieldAttrTxtClr, sIPlogSSHObj.fieldAttrBkgrdClr);
-            sIPlogSSHObj.WriteLineConsole(@"   Version 1                                   Greg Palmer", sIPlogSSHObj.fieldAttrTxtClr, sIPlogSSHObj.fieldAttrBkgrdClr);
+            foreach (string item in arg) //check for options
+            {
+                if (item == "-p") { sIPlogSSHObj.IncludePorts = true; }
+            }
 
-            if (arg.Length == 0)
+            if (arg.Length == 0 || arg.Length == Regex.Matches(string.Join(" ", arg), @"^-\w\b").Count)
             {
                 sIPlogSSHObj.DisplaySsh = true;
                 sIPlogSSHObj.fileMode = false;
@@ -188,6 +164,40 @@ public class Siplogssh
         }
     }
 
+    public Siplogssh()
+    {
+        requestRgx = new Regex(requestRgxStr); 
+        callidRgx = new Regex(callidRgxStr);
+        toRgx = new Regex(toRgxStr);
+        fromRgx = new Regex(fromRgxStr);
+        uaRgx = new Regex(uaRgxStr);
+        serverRgx = new Regex(serverRgxStr);
+        portRgx = new Regex(portRgxStr);
+        codecRgx = new Regex(codecRgxStr);
+        SDPIPRgx = new Regex(SDPIPRgxStr);
+        mAudioRgx = new Regex(mAudioRgxStr);
+        occasRgx = new Regex(occasRgxStr);
+        statusBarTxtClr = AttrColor.White;
+        statusBarBkgrdClr = AttrColor.Black;
+        headerTxtClr = AttrColor.Gray;
+        headerBkgrdClr = AttrColor.DarkBlue;
+        fieldConsoleTxtClr = ConsoleColor.Gray;
+        fieldConsoleBkgrdClr = ConsoleColor.DarkBlue;
+        fieldConsoleSelectClr = ConsoleColor.Red;
+        fieldConsoleTxtInvrtClr = ConsoleColor.DarkBlue;
+        fieldConsoleBkgrdInvrtClr = ConsoleColor.Gray;
+        fieldAttrTxtClr = AttrColor.Gray;
+        fieldAttrTxtInvrtClr = AttrColor.DarkBlue;
+        fieldAttrBkgrdClr = AttrColor.DarkBlue;
+        fieldAttrBkgrdInvrtClr = AttrColor.Gray;
+        fieldAttrSelectClr = AttrColor.Red;
+        footerTxtClr = AttrColor.Gray;
+        footerBkgrdClr = AttrColor.DarkBlue;
+        fakeCursor[0] = 0;
+        fakeCursor[1] = 0;
+        IncludePorts = false;
+    }
+
     void TopLine(string line, short x)
     {
         string displayLine;
@@ -199,7 +209,7 @@ public class Siplogssh
         {
             displayLine = line;
         }
-        ConsoleBuffer.SetAttribute(x, 0, line.Length, 15);
+        ConsoleBuffer.SetAttribute(x, 0, line.Length, (short)(statusBarTxtClr + (short)(((short)statusBarBkgrdClr) * 16)));
         ConsoleBuffer.WriteAt(x, 0, displayLine);
         
         
@@ -211,11 +221,13 @@ public class Siplogssh
         ConsoleBuffer.SetAttribute(x, y, line.Length, (short)( attr  +  (short)( ((short)bkgrd) * 16) ) );
         ConsoleBuffer.WriteAt(x, y, line);
     }
+
     void WriteConsole(string line, AttrColor attr,AttrColor bkgrd)
     {
         WriteScreen(line, (short)fakeCursor[0], (short)fakeCursor[1], attr, bkgrd);
         fakeCursor[0] = fakeCursor[0] + line.Length;
     }
+
     void WriteLineConsole(string line, AttrColor attr, AttrColor bkgrd)
     {
         WriteConsole(line + new String(' ', Console.BufferWidth-line.Length)
@@ -223,6 +235,7 @@ public class Siplogssh
         fakeCursor[1]++;
         fakeCursor[0] = 0;
     }
+
     void ClearConsole()
     {
         int[] prevFakeCursor = new int[2];
@@ -234,6 +247,7 @@ public class Siplogssh
         }
         fakeCursor = prevFakeCursor;
     }
+
     void ClearConsoleNoTop()
     {
         int[] prevFakeCursor = new int[2];
@@ -374,35 +388,53 @@ public class Siplogssh
 
     void FileReader(string[] filenames)
     {
+        if (filenames.Length == 0)
+        {
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine("\nNO FILES WERE SPECIFIED - Usage: siplog.exe logfile.log anotherlogfile.log ... ");
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Environment.Exit(1);
+        }
+        foreach (String file in filenames)
+        {
+            if (!File.Exists(file) && !Regex.IsMatch(file, @"^-\w\b"))
+            {
+                Console.WriteLine("\nFile " + file + " does not exist ");
+                Environment.Exit(1);
+            }            
+        }
         foreach (string file in filenames)
         {
-            currentFileLoadLeng = 0;
-            currentFileLoadProg = 0;
-            short x = 0;
-            //count the number of lines in a file
-            using (StreamReader sr = new StreamReader(file))
+            if(!Regex.IsMatch(file, @"^-\w\b"))
             {
-                string line;
-                while ((line = sr.ReadLine()) != null)
+                currentFileLoadLeng = 0;
+                currentFileLoadProg = 0;
+                short x = 0;
+                //count the number of lines in a file
+                using (StreamReader sr = new StreamReader(file))
                 {
-                    currentFileLoadLeng++;                    
-                    if (currentFileLoadLeng % 20000 == 0)
+                    string line;
+                    while ((line = sr.ReadLine()) != null)
                     {
-                        x = (short)(currentFileLoadLeng / 20000);
-                        TopLine(".", (short)(x-1));
+                        currentFileLoadLeng++;
+                        if (currentFileLoadLeng % 20000 == 0)
+                        {
+                            x = (short)(currentFileLoadLeng / 20000);
+                            TopLine(".", (short)(x - 1));
+                        }
                     }
+                    sr.Close();
+                    TopLine(" Reading " + currentFileLoadLeng + " lines of File : " + file, (short)(x));
                 }
-                sr.Close();
-                TopLine(" Reading " + currentFileLoadLeng + " lines of File : " + file, (short)(x));
-            }
-            Console.SetCursorPosition(0, 0);
-            using (StreamReader sread = new StreamReader(file))
-            {
-                while (!sread.EndOfStream)
+                Console.SetCursorPosition(0, 0);
+                using (StreamReader sread = new StreamReader(file))
                 {
-                    ReadData(sread,file);
+                    while (!sread.EndOfStream)
+                    {
+                        ReadData(sread, file);
+                    }
+                    sread.Close();
                 }
-                sread.Close();
             }
         }
         TopLine("Done reading all files "+ string.Join(" ", filenames), 0);
@@ -432,10 +464,12 @@ public class Siplogssh
                 {
                     outputarray[0] = (streamData.Count - 1).ToString(); 
                 }
-                outputarray[1] = Regex.Match(line, @"(\d{4}-\d{2}-\d{2})").ToString();                             //date                                 
-                outputarray[2] = Regex.Match(line, @"(\d{2}:\d{2}:\d{2}.\d{6})").ToString();                       //time            
-                outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})").ToString();      //src IP                                                                        
-                outputarray[4] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[1].ToString();      //dst IP           
+                outputarray[1] = Regex.Match(line, @"(\d{4}-\d{2}-\d{2})").ToString();                                                              //date                                 
+                outputarray[2] = Regex.Match(line, @"(\d{2}:\d{2}:\d{2}.\d{6})").ToString();                                                         //time            
+                if (IncludePorts) { outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:|.)\d*(?= >)").ToString(); }
+                else { outputarray[3] = Regex.Match(line, @"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?=(.|:)\d* >)").ToString(); }                               //src IP                                                                        
+                if (IncludePorts) { outputarray[4] = Regex.Match(line, @"(?<=> )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:|.)\d*").ToString(); }
+                else { outputarray[4] = Regex.Match(line, @"(?<=> )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})").ToString(); }                          //dst IP           
 
                 line = sread.ReadLine();
                 if (line == null) { break; }
@@ -661,7 +695,7 @@ public class Siplogssh
         {
             Console.WindowWidth = Math.Min(161, Console.LargestWindowWidth);
             Console.WindowHeight = Math.Min(44, Console.LargestWindowHeight);
-            Console.BufferWidth = 200;
+            if (Console.BufferWidth < 200) { Console.BufferWidth = 200; }
             ClearConsoleNoTop();
             Console.SetCursorPosition(0, 1);
             fakeCursor[0] = 0; fakeCursor[1] = 1;
@@ -1164,7 +1198,7 @@ public class Siplogssh
             numSelectdIps = ips.Count;
             Console.SetCursorPosition(0, 1);
             fakeCursor[0] = 0; fakeCursor[1] = 1;
-            if (selectedmessages.Count > Console.WindowHeight)
+            if (selectedmessages.Count > Console.BufferHeight)
             {
                 Console.BufferHeight = Math.Min(10 + selectedmessages.Count, Int16.MaxValue - 1);
             }
@@ -1173,9 +1207,9 @@ public class Siplogssh
             foreach (string ip in ips)
             {
                 flowWidth = flowWidth + 29;
-                if (flowWidth > Console.WindowWidth)
+                if (flowWidth > Console.BufferWidth)
                 {
-                    Console.BufferWidth = flowWidth;
+                    Console.BufferWidth = Math.Min(10 + flowWidth, Int16.MaxValue - 1); 
                 }
                 WriteConsole(ip + new String(' ', 29 - ip.Length), fieldAttrTxtClr, fieldAttrBkgrdClr);
             }
@@ -1358,14 +1392,16 @@ public class Siplogssh
     void FlowSelect()
     {
         List<String[]> selectedmessages = new List<string[]>();
-        selectedmessages = SelectMessages(messages, callLegsDisplayed);
+        lock (_locker)
+        {
+            selectedmessages = SelectMessages(messages, callLegsDisplayed);
+        }
         int prevNumSelectMsg = selectedmessages.Count;        
         List<string> ips = new List<string>();
         ips = GetIps(selectedmessages);
         int position = 0;
         Console.BackgroundColor = fieldConsoleBkgrdClr;
-        Console.ForegroundColor = fieldConsoleTxtClr;
-        if (selectedmessages.Count > Console.BufferHeight) { Console.BufferHeight = Math.Min(selectedmessages.Count + 20, Int16.MaxValue - 1); }
+        Console.ForegroundColor = fieldConsoleTxtClr;        
         ClearConsoleNoTop();
         Flow(selectedmessages, false,0);  //display call flow Diagram
         Console.SetCursorPosition(0, 0);   //brings window to the very top
@@ -1378,10 +1414,10 @@ public class Siplogssh
             ConsoleKeyInfo keypress;
             while (!Console.KeyAvailable)
             {
-                //lock (_locker)
-                //{
+                lock (_locker)
+                {
                     selectedmessages = SelectMessages(messages, callLegsDisplayed);
-                //}
+                }
                 if (selectedmessages.Count > prevNumSelectMsg)
                 {
                     Flow(selectedmessages, true, prevNumSelectMsg);
@@ -1462,8 +1498,7 @@ public class Siplogssh
             {
                 DisplayMessage(position, selectedmessages);
                 Console.BackgroundColor = fieldConsoleBkgrdClr;
-                Console.ForegroundColor = fieldConsoleTxtClr;
-                if (selectedmessages.Count > Console.BufferHeight) { Console.BufferHeight = Math.Min(selectedmessages.Count + 20, Int16.MaxValue - 1); }
+                Console.ForegroundColor = fieldConsoleTxtClr;                
                 Flow(selectedmessages,false,0);  //display call flow Diagram
                 if (position == 0)
                 {
@@ -1557,8 +1592,7 @@ public class Siplogssh
         int position = 0;
         //string MsgLine;
         int MsgLineLen;
-        ClearConsoleNoTop();
-        Console.BufferWidth = 500;
+        ClearConsoleNoTop();       
         Console.SetCursorPosition(0, 1);
         Console.WriteLine("Enter regex to search. Max lines displayed are 32765. example: for all the msg to/from 10.28.160.42 at 16:40:11 use 16:40:11.*10.28.160.42");
         Console.WriteLine("Data format: line number|date|time|src IP|dst IP|first line of SIP msg|From:|To:|Call-ID|line number|color|has SDP|filename|SDP IP|SDP port|SDP codec|useragent");
@@ -1680,16 +1714,11 @@ public class Siplogssh
 
                 case ConsoleKey.Enter:
                     DisplayMessage(position, filtered);
-                    Console.Clear();
-                    Console.BufferWidth = 500;
-                    if (filtered.Count > Console.WindowHeight)
-                    {
-                        Console.BufferHeight = filtered.Count + 10;
-                    }                    
+                    Console.Clear();                 
                     Console.SetCursorPosition(0, 0);
                     foreach (string[] line in filtered)
                     {
-                        Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", line);
+                        WriteLineConsole(String.Format("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", line), fieldAttrTxtClr, fieldAttrBkgrdClr);
                     }
                     Console.SetCursorPosition(0, position);
                     Console.BackgroundColor = fieldConsoleTxtClr;
@@ -1717,7 +1746,6 @@ public class ConsoleBuffer
     {
         const int STD_OUTPUT_HANDLE = -11;
         _hBuffer = GetStdHandle(STD_OUTPUT_HANDLE);
-
         if (_hBuffer.IsInvalid)
         {
             throw new Exception("Failed to open console buffer");
