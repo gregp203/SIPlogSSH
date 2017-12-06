@@ -11,7 +11,29 @@ using Microsoft.Win32.SafeHandles;
 public class Siplogssh
 {
     //tcpdump -i any -nn -A -tttt port 5060
-
+    Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
+    string requestRgxStr = @"ACK.*SIP\/2\.0|BYE.*SIP\/2\.0|CANCEL.*SIP\/2\.0|INFO.*SIP\/2\.0|INVITE.*SIP\/2\.0|MESSAGE.*SIP\/2\.0|NOTIFY.*SIP\/2\.0|OPTIONS.*SIP\/2\.0|PRACK.*SIP\/2\.0|PUBLISH.*SIP\/2\.0|REFER.*SIP\/2\.0|REGISTER.*SIP\/2\.0|SUBSCRIBE.*SIP\/2\.0|UPDATE.*SIP\/2\.0|SIP\/2\.0 \d{3}.*";
+    string callidRgxStr = @"(?<!-.{8})(?<=Call-ID:).*";
+    string toRgxStr = @"(?<=To:).*";
+    string fromRgxStr = @"(?<=From:).*";
+    string uaRgxStr = @"(?<=User-Agent:).*";
+    string serverRgxStr = @"(?<=Server:).*";
+    string portRgxStr = @"(?<=m=audio )\d*";
+    string codecRgxStr = @"(?<=RTP\/AVP )\d*";
+    string SDPIPRgxStr = @"(?<=c=IN IP4 )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})";
+    string mAudioRgxStr = @"m=audio \d* RTP\/AVP \d*";
+    string occasRgxStr = @"(?<=Contact: ).*wlssuser";
+    Regex requestRgx;
+    Regex callidRgx;
+    Regex toRgx;
+    Regex fromRgx;
+    Regex uaRgx;
+    Regex serverRgx;
+    Regex portRgx;
+    Regex codecRgx;
+    Regex SDPIPRgx;
+    Regex mAudioRgx;
+    Regex occasRgx;
     enum CallLegColors { Green, Cyan, Red, Magenta, Yellow, DarkGreen, DarkCyan, DarkRed, DarkMagenta };
     enum AttrColor:short
     {
@@ -82,14 +104,28 @@ public class Siplogssh
     AttrColor fieldAttrSelectClr;
     AttrColor footerTxtClr;
     AttrColor footerBkgrdClr;
-    int[] fakeCursor = new int[2];
+    int[] fakeCursor = new int[2];       
+    int numSelectdIps;
+    int flowWidth;
 
     static void Main(String[] arg)
     {
         try
         {
-            if (Console.BufferWidth < 200) { Console.BufferWidth = 200; }
             Siplogssh sIPlogSSHObj = new Siplogssh();
+            sIPlogSSHObj.requestRgx = new Regex(sIPlogSSHObj.requestRgxStr); //I probably should have made a constructor that did these
+            sIPlogSSHObj.callidRgx = new Regex(sIPlogSSHObj.callidRgxStr);
+            sIPlogSSHObj.toRgx = new Regex(sIPlogSSHObj.toRgxStr);
+            sIPlogSSHObj.fromRgx = new Regex(sIPlogSSHObj.fromRgxStr);
+            sIPlogSSHObj.uaRgx = new Regex(sIPlogSSHObj.uaRgxStr);
+            sIPlogSSHObj.serverRgx = new Regex(sIPlogSSHObj.serverRgxStr);
+            sIPlogSSHObj.portRgx = new Regex(sIPlogSSHObj.portRgxStr);
+            sIPlogSSHObj.codecRgx = new Regex(sIPlogSSHObj.codecRgxStr);
+            sIPlogSSHObj.SDPIPRgx = new Regex(sIPlogSSHObj.SDPIPRgxStr);
+            sIPlogSSHObj.mAudioRgx = new Regex(sIPlogSSHObj.mAudioRgxStr);
+            sIPlogSSHObj.occasRgx = new Regex(sIPlogSSHObj.occasRgxStr);
+            if (Console.BufferWidth < 200) { Console.BufferWidth = 200; }
+            
             sIPlogSSHObj.ClearConsole();
                  
             sIPlogSSHObj.statusBarTxtClr = AttrColor.White;
@@ -124,12 +160,15 @@ public class Siplogssh
 
             if (arg.Length == 0)
             {
+                sIPlogSSHObj.DisplaySsh = true;
+                sIPlogSSHObj.fileMode = false;
                 Thread SSHtermThread = new Thread(() => { sIPlogSSHObj.SSHterm(); });
                 SSHtermThread.Start();
                 sIPlogSSHObj.CallSelect(sIPlogSSHObj.callLegs, sIPlogSSHObj.messages);
             }
             else
             {
+                sIPlogSSHObj.DisplaySsh = false;
                 sIPlogSSHObj.fileMode = true;
                 Thread SIPlogThread = new Thread(() => { sIPlogSSHObj.FileReader(arg); });
                 SIPlogThread.Start();
@@ -346,8 +385,7 @@ public class Siplogssh
                 string line;
                 while ((line = sr.ReadLine()) != null)
                 {
-                    currentFileLoadLeng++;
-                    
+                    currentFileLoadLeng++;                    
                     if (currentFileLoadLeng % 20000 == 0)
                     {
                         x = (short)(currentFileLoadLeng / 20000);
@@ -366,38 +404,13 @@ public class Siplogssh
                 }
                 sread.Close();
             }
-
         }
         TopLine("Done reading all files "+ string.Join(" ", filenames), 0);
     }
 
     void ReadData(StreamReader sread,string fileName)
     {
-        Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
-        string requestRgxStr = @"ACK.*SIP\/2\.0|BYE.*SIP\/2\.0|CANCEL.*SIP\/2\.0|INFO.*SIP\/2\.0|INVITE.*SIP\/2\.0|MESSAGE.*SIP\/2\.0|NOTIFY.*SIP\/2\.0|OPTIONS.*SIP\/2\.0|PRACK.*SIP\/2\.0|PUBLISH.*SIP\/2\.0|REFER.*SIP\/2\.0|REGISTER.*SIP\/2\.0|SUBSCRIBE.*SIP\/2\.0|UPDATE.*SIP\/2\.0|SIP\/2\.0 \d{3}.*";
-        string callidRgxStr = @"(?<!-.{8})(?<=Call-ID:).*";
-        string toRgxStr = @"(?<=To:).*";
-        string fromRgxStr = @"(?<=From:).*";
-        string uaRgxStr = @"(?<=User-Agent:).*";
-        string serverRgxStr = @"(?<=Server:).*";
-        string portRgxStr = @"(?<=m=audio )\d*";
-        string codecRgxStr = @"(?<=RTP\/AVP )\d*";
-        string SDPIPRgxStr = @"(?<=c=IN IP4 )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})";
-        string mAudioRgxStr = @"m=audio \d* RTP\/AVP \d*";
-        string occasRgxStr = @"(?<=Contact: ).*wlssuser";
-        Regex requestRgx = new Regex(requestRgxStr);
-        Regex callidRgx = new Regex(callidRgxStr);
-        Regex toRgx = new Regex(toRgxStr);
-        Regex fromRgx = new Regex(fromRgxStr);
-        Regex uaRgx = new Regex(uaRgxStr);
-        Regex serverRgx = new Regex(serverRgxStr);
-        Regex portRgx = new Regex(portRgxStr);
-        Regex codecRgx = new Regex(codecRgxStr);
-        Regex SDPIPRgx = new Regex(SDPIPRgxStr);
-        Regex mAudioRgx = new Regex(mAudioRgxStr);
-        Regex occasRgx = new Regex(occasRgxStr);        
         string line;
-
         if (!String.IsNullOrEmpty(line = sread.ReadLine()))
         {
             lock (_locker)
@@ -407,7 +420,6 @@ public class Siplogssh
                 { streamData.Add(line); }
             }
             if (!fileMode && DisplaySsh) { Console.WriteLine(line); }
-
             while (!string.IsNullOrEmpty(line) && beginmsg.IsMatch(line))
             {
                 String[] outputarray = new String[17];
@@ -501,18 +513,23 @@ public class Siplogssh
                 {
                     outputarray[9] = (streamData.Count - 1).ToString();
                 }
-                outputarray[10] = "ConsoleColor.Gray";
+                outputarray[10] = "Gray";
                 outputarray[12] = fileName; //add file name 
                 if (outputarray[5] == null) { outputarray[5] = "Invalid SIP characters"; }
                 if (sipTwoDotOfound)
                 {
                     lock (_locker) { messages.Add(outputarray); }
+                    if (!fileMode && !DisplaySsh)
+                    {
+                        string FrmtStr = String.Format("{3,-16} > {4,-16}{5} From:{8} To:{7} {15}", outputarray);
+                        TopLine(FrmtStr.Substring(0, Math.Min(FrmtStr.Length, Console.BufferWidth-1)), 0);
+                    }
                     bool getcallid = false;
                     if (outputarray[3] != outputarray[4])
                     {
                         if (outputarray[5].Contains("INVITE") || outputarray[5].Contains("NOTIFY")|| outputarray[5].Contains("REGISTER") || outputarray[5].Contains("SUBSCRIBE"))
                         {
-                            if (CallInvites == 0) { DisplaySsh = false; }
+                            //if (CallInvites == 0) { DisplaySsh = false; }
                             if (callLegs.Count > 0) // if it is not the first message
                             {
                                 //check if call-id was not already gotten
@@ -564,10 +581,10 @@ public class Siplogssh
             lock (_locker)
             {
                 if (fileMode) { UpdateFileLoadProgress(); }
-                else
-                { streamData.Add(line); }
+                //else
+                //{ streamData.Add(line); }
             }
-            if (!fileMode && DisplaySsh) { Console.WriteLine(line); }
+            //if (!fileMode && DisplaySsh) { Console.WriteLine(line); }
         }
     }
 
@@ -659,9 +676,7 @@ public class Siplogssh
             WriteScreen(footerOne + new String(' ', Console.BufferWidth - footerOne.Length), 0, (short)(callLegsDisplayed.Count + 4), footerTxtClr, footerBkgrdClr);
             WriteScreen(footerTwo + new String(' ', Console.BufferWidth - footerTwo.Length), 0, (short)(callLegsDisplayed.Count + 5), footerTxtClr, footerBkgrdClr);
             WriteScreen(footerThree + new String(' ', Console.BufferWidth - footerThree.Length), 0, (short)(callLegsDisplayed.Count + 6), footerTxtClr, footerBkgrdClr);
-        }
-        
-            
+        }          
     }
 
     void CallLine(string[] InputCallLegs, int indx)
@@ -747,10 +762,11 @@ public class Siplogssh
         int CallInvitesPrev = 0;
         int prevRegistrations = 0;
         int prevsubscriptions = 0;
-        //while (CallInvites <1)
-        //{
-        //   //do nothing
-        //}
+        //while (CallInvites < 1 || notifications < 1 || registrations < 1 || subscriptions < 1 )
+        while(DisplaySsh)
+        {
+           //do nothing
+        }
         CallFilter(filter,notify,method);
         CallDisplay(position);
         ConsoleKeyInfo keypressed;
@@ -894,9 +910,9 @@ public class Siplogssh
                 }
 
             }
-            if (keypressed.Key == ConsoleKey.Spacebar)
+            if (callLegsDisplayed.Count > 0 && keypressed.Key == ConsoleKey.Spacebar)
             {
-                if (callLegsDisplayed[position][5] == "*")
+                 if (callLegsDisplayed[position][5] == "*")
                 {
                     callLegsDisplayed[position][5] = " ";
                     selected--;
@@ -923,7 +939,7 @@ public class Siplogssh
             {
                 if (selected > 0)
                 {
-                    FlowSelect(SelectMessages(messages, callLegsDisplayed));   //select SIP message from the call flow diagram                        
+                    FlowSelect();   //select SIP message from the call flow diagram                        
                     filterChange = true;
                     CallFilter(filter, notify, method);
                     CallDisplay(position);
@@ -957,8 +973,8 @@ public class Siplogssh
                     ListAllMsg(messages);
                     Console.WriteLine(@"  +--------------------------------------------------------------------+\  ");
                     Console.WriteLine(@"  |  Press any key to query SIP messages again or press [esc] to quit | | ");
-                    Console.WriteLine(@"  +--------------------------------------------------------------------+ | ");
-                    Console.WriteLine(@"   \____________________________________________________________________\| ");
+                    Console.WriteLine(@"  +-------------------------------------------------------------------+ | ");
+                    Console.WriteLine(@"   \___________________________________________________________________\| ");
                 } while (Console.ReadKey(true).Key != ConsoleKey.Escape);
                 filterChange = true;
                 CallFilter(filter, notify, method);
@@ -1012,7 +1028,7 @@ public class Siplogssh
                 }
                 DisplaySsh = true;                
             }
-            if (keypressed.Key == ConsoleKey.W)
+            if (!fileMode && keypressed.Key == ConsoleKey.W)
             {
                 Console.WriteLine(@"  +-------------------------------------------------------------------+\  ");
                 Console.WriteLine(@"  | Enter the file name to the data will be writen to:                | | ");
@@ -1022,7 +1038,7 @@ public class Siplogssh
                 Console.CursorTop -= 3;
                 Console.CursorLeft += 4;
                 string writeFileName = Console.ReadLine();
-                while (String.IsNullOrEmpty(writeFileName))
+                if (String.IsNullOrEmpty(writeFileName))
                 {
                     Console.ForegroundColor = ConsoleColor.White;
                     Console.CursorTop = Console.CursorTop - 1;
@@ -1032,60 +1048,61 @@ public class Siplogssh
                     Console.ReadKey(true);
                     Console.CursorTop -= 4;
                 }
-                File.WriteAllLines(writeFileName, streamData);
+                else
+                {
+                    File.WriteAllLines(writeFileName, streamData);
+                }
                 filterChange = true;
                 CallFilter(filter, notify, method);
                 CallDisplay(position);
             }
-            if (keypressed.Key == ConsoleKey.R)
+            if (method != "register" && keypressed.Key == ConsoleKey.R)
             {
                 string prevMethod = method;
                 filterChange = true;
                 method = "register";
                 ClearSelectedCalls();
-                selected = 0;
+                selected = 0;                
+                CallFilter(filter, notify, method);
+                /*if (callLegsDisplayed.Count == 0)
                 {
-                    CallFilter(filter, notify, method);
-                    if (callLegsDisplayed.Count == 0)
-                    {
-                        Console.ForegroundColor = ConsoleColor.White;
-                        Console.CursorTop = Console.CursorTop - 1;
-                        Console.WriteLine("  | No registrations were found. Press any key to continue");
-                        Console.ForegroundColor = ConsoleColor.Gray;
-                        method = prevMethod;
-                    }
-                }
-                while (callLegsDisplayed.Count == 0);
+                    Console.WriteLine(@"  +---------------------------------------------------------+\  ");
+                    Console.WriteLine(@"  | No registrations were found. Press any key to continue  | | ");
+                    Console.WriteLine(@"  +---------------------------------------------------------+ | ");
+                    Console.WriteLine(@"   \_________________________________________________________\| ");
+                    Console.ReadKey();
+                    method = prevMethod;
+                } */                               
                 position = 0;
+                CallFilter(filter, notify, method);
                 CallDisplay(position);
                 Console.SetCursorPosition(0, 0);
                 Console.SetCursorPosition(0, 4);
             }
-            if (keypressed.Key == ConsoleKey.S)
+            if (method != "subscribe" && keypressed.Key == ConsoleKey.S)
             {
                 string prevMethod = method;
                 filterChange = true;
                 ClearSelectedCalls();
                 selected = 0;
                 method = "subscribe";
+                CallFilter(filter, notify, method);
+                if (callLegsDisplayed.Count == 0)
                 {
-                    CallFilter(filter, notify, method);
-                    if (callLegsDisplayed.Count == 0)
-                    {
-                        Console.ForegroundColor = ConsoleColor.White;
-                        Console.CursorTop = Console.CursorTop - 1;
-                        Console.WriteLine("  | No subscriptions were found. Press any key to continue");
-                        Console.ForegroundColor = ConsoleColor.Gray;
-                        method = prevMethod;
-                    }
+                    Console.WriteLine(@"  +---------------------------------------------------------+\  ");
+                    Console.WriteLine(@"  | No subscriptions were found. Press any key to continue  | | ");
+                    Console.WriteLine(@"  +---------------------------------------------------------+ | ");
+                    Console.WriteLine(@"   \_________________________________________________________\| ");
+                    Console.ReadKey();
+                    method = prevMethod;
                 }
-                while (callLegsDisplayed.Count == 0) ;
                 position = 0;
+                CallFilter(filter, notify, method);
                 CallDisplay(position);
                 Console.SetCursorPosition(0, 0);
                 Console.SetCursorPosition(0, 4);
             }
-            if (keypressed.Key == ConsoleKey.I)
+            if (method != "invite" && keypressed.Key == ConsoleKey.I)
             {
                 string prevMethod = method;
                 filterChange = true;
@@ -1096,21 +1113,24 @@ public class Siplogssh
                     CallFilter(filter, notify, method);
                     if (callLegsDisplayed.Count == 0)
                     {
-                        Console.ForegroundColor = ConsoleColor.White;
-                        Console.CursorTop = Console.CursorTop - 1;
-                        Console.WriteLine("  | No calls were found. Press any key to continue");
-                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.WriteLine(@"  +-------------------------------------------------+\  ");
+                        Console.WriteLine(@"  | No calls were found. Press any key to continue  | | ");
+                        Console.WriteLine(@"  +-------------------------------------------------+ | ");
+                        Console.WriteLine(@"   \_________________________________________________\| ");
+                        Console.ReadKey();
                         method = prevMethod;
                     }
                 }
                 while (callLegsDisplayed.Count == 0) ;
                 position = 0;
+                CallFilter(filter, notify, method);
                 CallDisplay(position);
                 Console.SetCursorPosition(0, 0);
                 Console.SetCursorPosition(0, 4);
             }
         }        
     }
+
     void ClearSelectedCalls()
     {
         for (int i = 0; i < callLegsDisplayed.Count; i++)
@@ -1172,49 +1192,63 @@ public class Siplogssh
         return ips;
     }
 
-    void Flow(List<string[]> selectedmessages, List<string> ips)
+    void Flow(List<string[]> selectedmessages,bool addToEnd,int prevNumSelectMsg)
     {
-        Console.SetCursorPosition(0, 1);
-        fakeCursor[0] = 0; fakeCursor[1] = 1;
-        if (selectedmessages.Count > Console.WindowHeight)
+        List<string> ips = new List<string>();
+        ips = GetIps(selectedmessages); //get the IP addresses of the selected SIP messages for the top of the screen     
+        if (!addToEnd || ips.Count> numSelectdIps)
         {
-            Console.BufferHeight = Math.Min(10 + selectedmessages.Count, Int16.MaxValue - 1);
-        }
-        
-        int width = 24;
-        WriteConsole(new String(' ', 17), fieldAttrTxtClr, fieldAttrBkgrdClr);
-        foreach (string ip in ips)
-        {
-            width = width + 29;
-            if (width > Console.WindowWidth)
+            numSelectdIps = ips.Count;
+            Console.SetCursorPosition(0, 1);
+            fakeCursor[0] = 0; fakeCursor[1] = 1;
+            if (selectedmessages.Count > Console.WindowHeight)
             {
-                Console.BufferWidth = width;
+                Console.BufferHeight = Math.Min(10 + selectedmessages.Count, Int16.MaxValue - 1);
             }
-            WriteConsole(ip + new String(' ', 29 - ip.Length), fieldAttrTxtClr, fieldAttrBkgrdClr);
-        }
-        WriteLineConsole("", fieldAttrTxtClr, fieldAttrBkgrdClr);
-        WriteConsole(new String(' ', 17), fieldAttrTxtClr, fieldAttrBkgrdClr);
-        foreach (string ip in ips)
-        {
-            string ua = "";
-            foreach (string[] ary in selectedmessages)
+            flowWidth = 24;
+            WriteConsole(new String(' ', 17), fieldAttrTxtClr, fieldAttrBkgrdClr);
+            foreach (string ip in ips)
             {
-                if (ary[3] == ip && ary[16] != null)
+                flowWidth = flowWidth + 29;
+                if (flowWidth > Console.WindowWidth)
                 {
-                    ua = ary[16].Substring(0, Math.Min(15, ary[16].Length));
-                    break;
+                    Console.BufferWidth = flowWidth;
                 }
+                WriteConsole(ip + new String(' ', 29 - ip.Length), fieldAttrTxtClr, fieldAttrBkgrdClr);
             }
-            WriteConsole(ua + new String(' ', 29 - ua.Length), fieldAttrTxtClr, fieldAttrBkgrdClr);
+            WriteLineConsole("", fieldAttrTxtClr, fieldAttrBkgrdClr);
+            WriteConsole(new String(' ', 17), fieldAttrTxtClr, fieldAttrBkgrdClr);
+            foreach (string ip in ips)
+            {
+                string ua = "";
+                foreach (string[] ary in selectedmessages)
+                {
+                    if (ary[3] == ip && ary[16] != null)
+                    {
+                        ua = ary[16].Substring(0, Math.Min(15, ary[16].Length));
+                        break;
+                    }
+                }
+                WriteConsole(ua + new String(' ', 29 - ua.Length), fieldAttrTxtClr, fieldAttrBkgrdClr);
+            }
+            WriteLineConsole("", fieldAttrTxtClr, fieldAttrBkgrdClr);
+            WriteLineConsole(new String('-', flowWidth - 1), fieldAttrTxtClr, fieldAttrBkgrdClr);
+            foreach (string[] msg in selectedmessages)
+            {
+                //if ((Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)) { break; }
+                WriteMessageLine(msg, ips, false);
+            }
+            WriteLineConsole(new String('-', flowWidth - 1), fieldAttrTxtClr, fieldAttrBkgrdClr);
         }
-        WriteLineConsole("", fieldAttrTxtClr, fieldAttrBkgrdClr);
-        WriteLineConsole(new String('-', width - 1), fieldAttrTxtClr, fieldAttrBkgrdClr);
-        foreach (string[] msg in selectedmessages)
+        else
         {
-            //if ((Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)) { break; }
-            WriteMessageLine(msg, ips, false);
+            for (int i = prevNumSelectMsg; i < selectedmessages.Count; i++)
+            {
+                fakeCursor[0] = 0; fakeCursor[1] = i+4;
+                WriteMessageLine(selectedmessages[i], ips, false);
+                WriteLineConsole(new String('-', flowWidth - 1), fieldAttrTxtClr, fieldAttrBkgrdClr);
+            }
         }
-        WriteLineConsole(new String('-', width - 1), fieldAttrTxtClr, fieldAttrBkgrdClr);
     }
 
     void MessageLine(string[] message, List<string> ips, bool invert)
@@ -1358,16 +1392,19 @@ public class Siplogssh
         WriteLineConsole("", TxtColor, BkgrdColor);
     }
 
-    void FlowSelect(List<string[]> selectedmessages)
+    void FlowSelect()
     {
+        List<String[]> selectedmessages = new List<string[]>();
+        selectedmessages = SelectMessages(messages, callLegsDisplayed);
+        int prevNumSelectMsg = selectedmessages.Count;        
         List<string> ips = new List<string>();
-        ips = GetIps(selectedmessages); //get the IP addresses of the selected SIP messages for the top of the screen        
+        ips = GetIps(selectedmessages);
         int position = 0;
         Console.BackgroundColor = fieldConsoleBkgrdClr;
         Console.ForegroundColor = fieldConsoleTxtClr;
         if (selectedmessages.Count > Console.BufferHeight) { Console.BufferHeight = Math.Min(selectedmessages.Count + 20, Int16.MaxValue - 1); }
         ClearConsoleNoTop();
-        Flow(selectedmessages, ips);  //display call flow Diagram
+        Flow(selectedmessages, false,0);  //display call flow Diagram
         Console.SetCursorPosition(0, 0);   //brings window to the very top
         Console.SetCursorPosition(0, 4);
         MessageLine(selectedmessages[0], ips, true);
@@ -1375,7 +1412,20 @@ public class Siplogssh
         bool done = false;
         while (done == false)
         {
-            ConsoleKeyInfo keypress = Console.ReadKey(true);
+            ConsoleKeyInfo keypress;
+            while (!Console.KeyAvailable)
+            {
+                //lock (_locker)
+                //{
+                    selectedmessages = SelectMessages(messages, callLegsDisplayed);
+                //}
+                if (selectedmessages.Count > prevNumSelectMsg)
+                {
+                    Flow(selectedmessages, true, prevNumSelectMsg);
+                    prevNumSelectMsg = selectedmessages.Count;
+                }
+            }
+            keypress = Console.ReadKey(true);
             if (keypress.Key == ConsoleKey.DownArrow)
             {
                 if (position < selectedmessages.Count - 1)
@@ -1451,7 +1501,7 @@ public class Siplogssh
                 Console.BackgroundColor = fieldConsoleBkgrdClr;
                 Console.ForegroundColor = fieldConsoleTxtClr;
                 if (selectedmessages.Count > Console.BufferHeight) { Console.BufferHeight = Math.Min(selectedmessages.Count + 20, Int16.MaxValue - 1); }
-                Flow(selectedmessages, ips);  //display call flow Diagram
+                Flow(selectedmessages,false,0);  //display call flow Diagram
                 if (position == 0)
                 {
                     Console.SetCursorPosition(0, 0);   //brings window to the very top
@@ -1534,8 +1584,6 @@ public class Siplogssh
                 Console.CursorTop--;
             }
         }
-      
-        
     }
 
     void ListAllMsg(List<string[]> messages)
@@ -1576,8 +1624,9 @@ public class Siplogssh
                     WriteLineConsole(String.Format("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", ary), fieldAttrTxtClr, fieldAttrBkgrdClr);
                     filtered.Add(ary);
                     maxline++;
-                    if (maxline > Console.BufferHeight) { Console.BufferHeight += maxline + 10; }
-                    if (maxline > 32764) { break; }
+                    if (maxline > 32700) { break; }
+                    if (maxline > Console.BufferHeight) { Console.BufferHeight = maxline; }
+                    
                 }
             }
             if (filtered.Count == 0)
