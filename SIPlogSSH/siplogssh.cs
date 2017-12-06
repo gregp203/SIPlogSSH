@@ -935,16 +935,12 @@ public class Siplogssh
                     Console.ForegroundColor = fieldConsoleTxtClr;
                 }
             }
-            if (keypressed.Key == ConsoleKey.Enter)
+            if (selected > 0 && keypressed.Key == ConsoleKey.Enter)
             {
-                if (selected > 0)
-                {
-                    FlowSelect();   //select SIP message from the call flow diagram                        
-                    filterChange = true;
-                    CallFilter(filter, notify, method);
-                    CallDisplay(position);
-                    
-                }
+                FlowSelect();   //select SIP message from the call flow diagram                        
+                filterChange = true;
+                CallFilter(filter, notify, method);
+                CallDisplay(position);
             }
             if (keypressed.Key == ConsoleKey.Escape)
             {
