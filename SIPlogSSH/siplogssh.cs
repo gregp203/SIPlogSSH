@@ -108,6 +108,7 @@ public class Siplogssh
     int numSelectdIps;
     int flowWidth;
     bool IncludePorts;
+    string methodDisplayed;
 
     static void Main(String[] arg)
     {
@@ -643,8 +644,7 @@ public class Siplogssh
                 if (callLegsDisplayed.Count > Console.WindowHeight)
                 {
                     Console.BufferHeight = 10 + callLegsDisplayed.Count;
-                }
-                //Console.SetCursorPosition(0,  callLegsDisplayedCountPrev+4 );
+                }                
                 for (int i = callLegsDisplayedCountPrev; i < callLegsDisplayed.Count; i++)
                 {
                     WriteScreenCallLine(callLegsDisplayed[i], i);
@@ -664,11 +664,17 @@ public class Siplogssh
                 {
                     Console.BufferHeight = 10 + callLegsDisplayed.Count;
                 }
-                WriteConsole("[Spacebar]-select calls [Enter]-for call flow [F]-filter [Q]-query all SIP msgs [Esc]-quit [N]-toggle NOTIFYs [R]-registrations [S]-subscriptions", headerTxtClr, headerBkgrdClr);
+                WriteConsole("[Spacebar]-select calls [Enter]-for call flow [F]-filter [Q]-query all SIP msgs [Esc]-quit [N]-toggle NOTIFYs ", headerTxtClr, headerBkgrdClr);
+                if (methodDisplayed == "invite") { WriteConsole("[R]-registrations [S]-subscriptions", headerTxtClr, headerBkgrdClr); }
+                if (methodDisplayed == "register") { WriteConsole("[I]-invites/calls [S]-subscriptions", headerTxtClr, headerBkgrdClr); }
+                if (methodDisplayed == "subscribe") { WriteConsole("[I]-invites/calls [R]-registrations", headerTxtClr, headerBkgrdClr); }
                 if (!fileMode) { WriteLineConsole(" [T]-terminal [W]-write to file", headerTxtClr, headerBkgrdClr); } else { WriteLineConsole(" ", headerTxtClr, headerBkgrdClr); }
                 String formatedStr = String.Format("{0,-2} {1,-6} {2,-10} {3,-12} {4,-45} {5,-45} {6,-16} {7,-16}", "*", "index", "date", "time", "from:", "to:", "src IP", "dst IP");
                 WriteLineConsole(formatedStr, headerTxtClr, headerBkgrdClr);
-                WriteLineConsole(new String('-', 160), headerTxtClr, headerBkgrdClr);
+                if (methodDisplayed == "invite") { WriteConsole("----invites/calls---", headerTxtClr, headerBkgrdClr); }
+                if (methodDisplayed == "register") { WriteConsole("----registrations---", headerTxtClr, headerBkgrdClr); }
+                if (methodDisplayed == "subscribe") { WriteConsole("----subscriptions---", headerTxtClr, headerBkgrdClr); }
+                WriteLineConsole(new String('-', 140), headerTxtClr, headerBkgrdClr);
                 int i = 0;
                 foreach (String[] ary in callLegsDisplayed)
                 {
@@ -791,7 +797,7 @@ public class Siplogssh
         bool done = false;
         int position = 0;
         bool notify = false;
-        string method = "invite";
+        methodDisplayed = "invite";
         String[] filter = new String[20];
         int CallInvitesPrev = 0;
         int prevRegistrations = 0;
@@ -801,7 +807,7 @@ public class Siplogssh
         {
            //do nothing
         }
-        CallFilter(filter,notify,method);
+        CallFilter(filter,notify, methodDisplayed);
         CallDisplay(position);
         ConsoleKeyInfo keypressed;
         while (done == false)
@@ -811,28 +817,28 @@ public class Siplogssh
             {
                 if (!DisplaySsh)
                 {
-                    if (method == "invite" && CallInvites > CallInvitesPrev)
+                    if (methodDisplayed == "invite" && CallInvites > CallInvitesPrev)
                     {
                         CallInvitesPrev = CallInvites;
-                        CallFilter(filter, notify, method);
+                        CallFilter(filter, notify, methodDisplayed);
                         CallDisplay(position);
                     }
-                    if (method == "register" && registrations > prevRegistrations)
+                    if (methodDisplayed == "register" && registrations > prevRegistrations)
                     {
                         prevRegistrations = registrations;
-                        CallFilter(filter, notify, method);
+                        CallFilter(filter, notify, methodDisplayed);
                         CallDisplay(position);
                     }
-                    if (method == "subscribe" && subscriptions > prevsubscriptions)
+                    if (methodDisplayed == "subscribe" && subscriptions > prevsubscriptions)
                     {
                         prevsubscriptions = subscriptions;
-                        CallFilter(filter, notify, method);
+                        CallFilter(filter, notify, methodDisplayed);
                         CallDisplay(position);
                     }
                 }
                 if(TermChange)
                 {                    
-                    CallFilter(filter, notify, method);
+                    CallFilter(filter, notify, methodDisplayed);
                     CallDisplay(position);
                     TermChange = false;
                 }                
@@ -973,7 +979,7 @@ public class Siplogssh
             {
                 FlowSelect();   //select SIP message from the call flow diagram                        
                 filterChange = true;
-                CallFilter(filter, notify, method);
+                CallFilter(filter, notify, methodDisplayed);
                 CallDisplay(position);
             }
             if (keypressed.Key == ConsoleKey.Escape)
@@ -991,7 +997,7 @@ public class Siplogssh
                         break;
                     case ConsoleKey.N:
                         filterChange = true;
-                        CallFilter(filter, notify, method);
+                        CallFilter(filter, notify, methodDisplayed);
                         CallDisplay(position);                        
                         break;
                 }
@@ -1007,7 +1013,7 @@ public class Siplogssh
                     Console.WriteLine(@"   \___________________________________________________________________\| ");
                 } while (Console.ReadKey(true).Key != ConsoleKey.Escape);
                 filterChange = true;
-                CallFilter(filter, notify, method);
+                CallFilter(filter, notify, methodDisplayed);
                 CallDisplay(position);                
             }
             if (keypressed.Key == ConsoleKey.F)
@@ -1023,7 +1029,7 @@ public class Siplogssh
                     Console.CursorTop -= 3;
                     Console.CursorLeft += 4;
                     filter = Console.ReadLine().Split(' ');
-                    CallFilter(filter, notify, method);
+                    CallFilter(filter, notify, methodDisplayed);
                     if (callLegsDisplayed.Count == 0)
                     {
                         Console.ForegroundColor = ConsoleColor.White;
@@ -1046,13 +1052,13 @@ public class Siplogssh
                 position = 0;
                 if (notify == false) { notify = true; } else { notify = false; }
                 filterChange = true;
-                CallFilter(filter, notify, method);
+                CallFilter(filter, notify, methodDisplayed);
                 CallDisplay(position);
             }
             if (!fileMode && keypressed.Key == ConsoleKey.T)
             {
                 Console.Clear();
-                for(int i = streamData.Count-40; i < streamData.Count; i++)
+                for(int i = Math.Max(0, streamData.Count-40); i < streamData.Count; i++)
                 {
                     Console.WriteLine(streamData[i]);
                 }
@@ -1083,44 +1089,44 @@ public class Siplogssh
                     File.WriteAllLines(writeFileName, streamData);
                 }
                 filterChange = true;
-                CallFilter(filter, notify, method);
+                CallFilter(filter, notify, methodDisplayed);
                 CallDisplay(position);
             }
-            if (method != "register" && keypressed.Key == ConsoleKey.R)
+            if (methodDisplayed != "register" && keypressed.Key == ConsoleKey.R)
             {
-                string prevMethod = method;
+                string prevMethod = methodDisplayed;
                 filterChange = true;
-                method = "register";
+                methodDisplayed = "register";
                 ClearSelectedCalls();
                 selected = 0;
                 position = 0;
-                CallFilter(filter, notify, method);
-                CallDisplay(position);
-                Console.SetCursorPosition(0, 0);
-                Console.SetCursorPosition(0, 4);
-            }
-            if (method != "subscribe" && keypressed.Key == ConsoleKey.S)
-            {
-                string prevMethod = method;
-                filterChange = true;
-                ClearSelectedCalls();
-                selected = 0;
-                method = "subscribe";
-                position = 0;
-                CallFilter(filter, notify, method);
+                CallFilter(filter, notify, methodDisplayed);
                 CallDisplay(position);
                 Console.SetCursorPosition(0, 0);
                 Console.SetCursorPosition(0, 4);
             }
-            if (method != "invite" && keypressed.Key == ConsoleKey.I)
+            if (methodDisplayed != "subscribe" && keypressed.Key == ConsoleKey.S)
             {
-                string prevMethod = method;
+                string prevMethod = methodDisplayed;
                 filterChange = true;
-                method = "invite";
+                ClearSelectedCalls();
+                selected = 0;
+                methodDisplayed = "subscribe";
+                position = 0;
+                CallFilter(filter, notify, methodDisplayed);
+                CallDisplay(position);
+                Console.SetCursorPosition(0, 0);
+                Console.SetCursorPosition(0, 4);
+            }
+            if (methodDisplayed != "invite" && keypressed.Key == ConsoleKey.I)
+            {
+                string prevMethod = methodDisplayed;
+                filterChange = true;
+                methodDisplayed = "invite";
                 selected = 0;
                 ClearSelectedCalls();
                 position = 0;
-                CallFilter(filter, notify, method);
+                CallFilter(filter, notify, methodDisplayed);
                 CallDisplay(position);
                 Console.SetCursorPosition(0, 0);
                 Console.SetCursorPosition(0, 4);
@@ -1412,7 +1418,7 @@ public class Siplogssh
         while (done == false)
         {
             ConsoleKeyInfo keypress;
-            while (!Console.KeyAvailable)
+            while (!Console.KeyAvailable && !fileMode)
             {
                 lock (_locker)
                 {
