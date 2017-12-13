@@ -12,6 +12,7 @@ public class Siplogssh
 {
     //tcpdump -i any -nn -A -tttt port 5060
     Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
+    //for AudioCodes \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\s\w*\sSIP\sMessage\s(to|from)\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{2}-\d{2}@\d{2}:\d{2}:\d{2}
     string requestRgxStr = @"ACK.*SIP\/2\.0|BYE.*SIP\/2\.0|CANCEL.*SIP\/2\.0|INFO.*SIP\/2\.0|INVITE.*SIP\/2\.0|MESSAGE.*SIP\/2\.0|NOTIFY.*SIP\/2\.0|OPTIONS.*SIP\/2\.0|PRACK.*SIP\/2\.0|PUBLISH.*SIP\/2\.0|REFER.*SIP\/2\.0|REGISTER.*SIP\/2\.0|SUBSCRIBE.*SIP\/2\.0|UPDATE.*SIP\/2\.0|SIP\/2\.0 \d{3}.*";
     string callidRgxStr = @"(?<!-.{8})(?<=Call-ID:).*";
     string toRgxStr = @"(?<=To:).*";
@@ -564,8 +565,10 @@ public class Siplogssh
                 {
                     outputarray[0] = (streamData.Count - 1).ToString(); 
                 }
-                outputarray[1] = Regex.Match(line, @"(\d{4}-\d{2}-\d{2})").ToString();                                                              //date                                 
-                outputarray[2] = Regex.Match(line, @"(\d{2}:\d{2}:\d{2}.\d{6})").ToString();                                                         //time            
+                outputarray[1] = Regex.Match(line, @"(\d{4}-\d{2}-\d{2})").ToString();                                                              //date  
+                //for AudioCodes (?<=\[Time:)\d{2}-\d{2}(?=@)
+                outputarray[2] = Regex.Match(line, @"(\d{2}:\d{2}:\d{2}.\d{6})").ToString();                                                         //time
+                //for AudioCodes (?<=\[Time:\d{2}-\d{2}@)\d{2}:\d{2}:\d{2}(?=\])
                 if (IncludePorts) { outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:|.)\d*(?= >)").ToString(); }
                 else { outputarray[3] = Regex.Match(line, @"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?=(.|:)\d* >)").ToString(); }                               //src IP                                                                        
                 if (IncludePorts) { outputarray[4] = Regex.Match(line, @"(?<=> )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:|.)\d*").ToString(); }
@@ -1101,7 +1104,13 @@ public class Siplogssh
         WriteScreen(footerOne + new String(' ', Console.BufferWidth - footerOne.Length), 0, (short)(callLegsDisplayed.Count + 4), footerTxtClr, footerBkgrdClr);
         WriteScreen(footerTwo + new String(' ', Console.BufferWidth - footerTwo.Length), 0, (short)(callLegsDisplayed.Count + 5), footerTxtClr, footerBkgrdClr);
         WriteScreen(footerThree + new String(' ', Console.BufferWidth - footerThree.Length), 0, (short)(callLegsDisplayed.Count + 6), footerTxtClr, footerBkgrdClr);
-        
+        Console.SetCursorPosition(0, CallListPosition + 4);
+        Console.BackgroundColor = fieldConsoleTxtClr;
+        Console.ForegroundColor = fieldConsoleBkgrdClr;
+        CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
+        Console.SetCursorPosition(0, CallListPosition + 4);
+        Console.BackgroundColor = fieldConsoleBkgrdClr;
+        Console.ForegroundColor = fieldConsoleTxtClr;
 
     }
 
@@ -1203,7 +1212,29 @@ public class Siplogssh
             }
         }        
     }
-    
+    void MoveCursor (bool up, int amount)
+    {
+        Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
+        Console.ForegroundColor = fieldConsoleTxtClr;
+        CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
+        if (up)
+        {
+            CallListPosition -= amount;
+            Console.CursorTop -= (amount + 1);
+        }
+        else
+        {
+            CallListPosition += amount;
+            Console.CursorTop += (amount - 1);
+        }
+            Console.BackgroundColor = fieldConsoleBkgrdInvrtClr;   //change the colors of the current postion to inverted
+        Console.ForegroundColor = fieldConsoleTxtInvrtClr;
+        CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
+        Console.CursorTop -= 1;
+        Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
+        Console.ForegroundColor = fieldConsoleTxtClr;
+    }
+
     void CallSelect()
     {
         int selected = 0;
@@ -1227,79 +1258,24 @@ public class Siplogssh
        
         while (done == false)
         {
-            //dynamicly update the list if any of the following change
-            
-           /* while (!displayMode == "calls") && !Console.KeyAvailable)
-            {
-                 Monitor.Wait(_locker, 500);
-                if (!(displayMode == "ssh"))
-                {
-                    if (methodDisplayed == "invite" && CallInvites > CallInvitesPrev)
-                    {
-                        CallInvitesPrev = CallInvites;
-                        CallFilter(methodDisplayed);
-                        CallDisplay(position);
-                    }
-                    if (methodDisplayed == "register" && registrations > prevRegistrations)
-                    {
-                        prevRegistrations = registrations;
-                        CallFilter( methodDisplayed);
-                        CallDisplay(position);
-                    }
-                    if (methodDisplayed == "subscribe" && subscriptions > prevsubscriptions)
-                    {
-                        prevsubscriptions = subscriptions;
-                        CallFilter( methodDisplayed);
-                        CallDisplay(position);
-                    }
-                
-                
-                if (messagesReSorted)
-                {
-                    CallFilter();
-                    CallDisplay(position);
-                    messagesReSorted = false;
-                }
-            }*/
-            
             keypressed = Console.ReadKey(true);
-            lock (_locker)
-            {
+            
                 if (keypressed.Key == ConsoleKey.DownArrow)
                 {
                     if (CallListPosition < callLegsDisplayed.Count - 1)
                     {
-                        Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
-                        Console.ForegroundColor = fieldConsoleTxtClr;
-                        CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
-                        CallListPosition++;
-                        Console.BackgroundColor = fieldConsoleBkgrdInvrtClr;   //change the colors of the current postion to inverted
-                        Console.ForegroundColor = fieldConsoleTxtInvrtClr;
-                        CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
-                        Console.CursorTop -= 1;
-                        Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
-                        Console.ForegroundColor = fieldConsoleTxtClr;
+                    MoveCursor(false, 1);
                     }
                 }
                 if (keypressed.Key == ConsoleKey.PageDown)
                 {
                     if (CallListPosition + 40 < callLegsDisplayed.Count - 1)
                     {
-                        Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
-                        Console.ForegroundColor = fieldConsoleTxtClr;
-                        CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
-                        Console.CursorTop += 39;
-                        CallListPosition += 40;
-                        Console.BackgroundColor = fieldConsoleBkgrdInvrtClr;   //change the colors of the current postion to inverted
-                        Console.ForegroundColor = fieldConsoleTxtInvrtClr;
-                        CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
-                        Console.CursorTop -= 1;
-                        Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
-                        Console.ForegroundColor = fieldConsoleTxtClr;
+                        MoveCursor(false, 40);
                     }
                     else
                     {
-                        Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
+                        /*Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
                         Console.ForegroundColor = fieldConsoleTxtClr;
                         CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
                         Console.CursorTop = callLegsDisplayed.Count - 1 + 4;
@@ -1309,24 +1285,15 @@ public class Siplogssh
                         CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
                         Console.CursorTop -= 1;
                         Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
-                        Console.ForegroundColor = fieldConsoleTxtClr;
+                        Console.ForegroundColor = fieldConsoleTxtClr;*/
+                        MoveCursor(false, CallListPosition - callLegsDisplayed.Count - 1);
                     }
                 }
                 if (keypressed.Key == ConsoleKey.UpArrow)
                 {
                     if (CallListPosition > 0)
                     {
-                        Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
-                        Console.ForegroundColor = fieldConsoleTxtClr;
-                        CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
-                        Console.CursorTop -= 2;     //move cursor up two since writline advances one
-                        CallListPosition--;
-                        Console.BackgroundColor = fieldConsoleBkgrdInvrtClr;   //change the colors of the current postion to inverted
-                        Console.ForegroundColor = fieldConsoleTxtInvrtClr;
-                        CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
-                        Console.CursorTop -= 1;
-                        Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
-                        Console.ForegroundColor = fieldConsoleTxtClr;
+                        MoveCursor(true, 1);
                     }
                     else
                     {
@@ -1338,21 +1305,11 @@ public class Siplogssh
                 {
                     if (CallListPosition > 40)
                     {
-                        Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
-                        Console.ForegroundColor = fieldConsoleTxtClr;
-                        CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
-                        Console.CursorTop -= 41;     //move cursor up two since writline advances one
-                        CallListPosition -= 40;
-                        Console.BackgroundColor = fieldConsoleBkgrdInvrtClr;   //change the colors of the current postion to inverted
-                        Console.ForegroundColor = fieldConsoleTxtInvrtClr;
-                        CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
-                        Console.CursorTop -= 1;
-                        Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
-                        Console.ForegroundColor = fieldConsoleTxtClr;
+                        MoveCursor(true, 40);
                     }
                     else
                     {
-                        Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
+                        /*Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
                         Console.ForegroundColor = fieldConsoleTxtClr;
                         CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
                         Console.CursorTop = 4;     //move cursor up two since writline advances one
@@ -1362,7 +1319,8 @@ public class Siplogssh
                         CallLine(callLegsDisplayed[CallListPosition], CallListPosition);
                         Console.CursorTop -= 1;
                         Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
-                        Console.ForegroundColor = fieldConsoleTxtClr;
+                        Console.ForegroundColor = fieldConsoleTxtClr;*/
+                        MoveCursor(true, CallListPosition);
                     }
                     if (CallListPosition == 0)
                     {
@@ -1558,7 +1516,7 @@ public class Siplogssh
                     Console.SetCursorPosition(0, 0);
                     Console.SetCursorPosition(0, 4);
                 }
-            }
+            
         }        
     }
 
@@ -1844,18 +1802,6 @@ public class Siplogssh
         while (done == false)
         {
             ConsoleKeyInfo keypress;
-            /*while (!Console.KeyAvailable && !fileMode)
-            {
-                lock (_locker)
-                {
-                    selectedmessages = SelectMessages(messages, callLegsDisplayed);
-                }
-                if (selectedmessages.Count > prevNumSelectMsg)
-                {
-                    Flow( true, prevNumSelectMsg);
-                    prevNumSelectMsg = selectedmessages.Count;
-                }
-            }*/
             keypress = Console.ReadKey(true);
             if (keypress.Key == ConsoleKey.DownArrow)
             {
