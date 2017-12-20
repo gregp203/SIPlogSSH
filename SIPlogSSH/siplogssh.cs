@@ -809,14 +809,15 @@ public class Siplogssh
     } 
 
     void CallDisplay(bool newFullScreen)
-    { 
+    {
+        Console.WindowWidth = Math.Min(161, Console.LargestWindowWidth);
+        Console.WindowHeight = Math.Min(44, Console.LargestWindowHeight);
+        Console.BufferWidth = 200;
+        Console.BufferHeight =  Math.Max(10 + callLegsDisplayed.Count, Console.BufferHeight);
         //if the following conditions true , just add the calls to the bottom of the screen without redrawing
         if (!newFullScreen && !filterChange && callLegsDisplayedCountPrev != 0 && callLegsDisplayed.Count > callLegsDisplayedCountPrev)
         {
-            if (callLegsDisplayed.Count > Console.WindowHeight)
-            {
-                Console.BufferHeight = Math.Min(10 + callLegsDisplayed.Count, Console.BufferHeight);
-            }
+            
             for (int i = callLegsDisplayedCountPrev; i < callLegsDisplayed.Count; i++)
             {
                 WriteScreenCallLine(callLegsDisplayed[i], i);
@@ -825,16 +826,9 @@ public class Siplogssh
         else
         {
             filterChange = false;
-            callLegsDisplayedCountPrev = callLegsDisplayed.Count;
-            Console.WindowWidth = Math.Min(161, Console.LargestWindowWidth);
-            Console.WindowHeight = Math.Min(44, Console.LargestWindowHeight);
-            Console.BufferWidth = 200;
+            callLegsDisplayedCountPrev = callLegsDisplayed.Count;            
             ClearConsoleNoTop();                
-            fakeCursor[0] = 0; fakeCursor[1] = 1;
-            if (callLegsDisplayed.Count > Console.WindowHeight)
-            {
-                Console.BufferHeight = Math.Min(10 + callLegsDisplayed.Count, Console.BufferHeight);
-            }
+            fakeCursor[0] = 0; fakeCursor[1] = 1;            
             WriteConsole("[Spacebar]-select calls [Enter]-for call flow [F]-filter [Q]-query all SIP msgs [Esc]-quit [N]-toggle NOTIFYs ", headerTxtClr, headerBkgrdClr);
             if (methodDisplayed == "invite") { WriteConsole("[R]-registrations [S]-subscriptions", headerTxtClr, headerBkgrdClr); }
             if (methodDisplayed == "register") { WriteConsole("[I]-invites/calls [S]-subscriptions", headerTxtClr, headerBkgrdClr); }
@@ -1371,7 +1365,7 @@ public class Siplogssh
             {
                 if (selectedmessages.Count > Console.BufferHeight)
                 {
-                    Console.BufferHeight = Math.Min(Math.Min(10 + selectedmessages.Count, Int16.MaxValue - 1),Console.BufferHeight);
+                    Console.BufferHeight = Math.Max(Math.Min(10 + selectedmessages.Count, Int16.MaxValue - 1),Console.BufferHeight);
                 }
                 for (int i = prevNumSelectMsg; i < selectedmessages.Count; i++)
                 {
@@ -1392,7 +1386,7 @@ public class Siplogssh
                 fakeCursor[0] = 0; fakeCursor[1] = 1;
                 if (selectedmessages.Count > Console.BufferHeight)
                 {
-                    Console.BufferHeight = Math.Min(Math.Min(10 + selectedmessages.Count, Int16.MaxValue - 1),Console.BufferHeight);
+                    Console.BufferHeight = Math.Max(Math.Min(10 + selectedmessages.Count, Int16.MaxValue - 1),Console.BufferHeight);
                 }
                 flowWidth = 24;
                 WriteConsole(new String(' ', 17), fieldAttrTxtClr, fieldAttrBkgrdClr);
@@ -1832,7 +1826,7 @@ public class Siplogssh
         int msgEndIdx = Int32.Parse(messages[msgindxselected][9]);        
         if ((msgEndIdx - msgStartIdx) > Console.BufferHeight)
         {
-            Console.BufferHeight = Math.Min(Math.Min(5 + (msgEndIdx - msgStartIdx), Int16.MaxValue - 1), Console.BufferHeight);
+            Console.BufferHeight = Math.Max(Math.Min(5 + (msgEndIdx - msgStartIdx), Int16.MaxValue - 1), Console.BufferHeight);
         }
         ClearConsoleNoTop();
         Console.SetCursorPosition(0, 1);
