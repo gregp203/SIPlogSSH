@@ -11,8 +11,16 @@ using Microsoft.Win32.SafeHandles;
 public class Siplogssh
 {
     //tcpdump -i any -nn -A -tttt port 5060
-    Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
+    string beginMsgRgxStr = @"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"; //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
     //for AudioCodes \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\s\w*\sSIP\sMessage\s(to|from)\s\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{2}-\d{2}@\d{2}:\d{2}:\d{2}
+    string dateRgxStr = @"(\d{4}-\d{2}-\d{2})";
+    string timeRgxStr = @"(\d{2}:\d{2}:\d{2}.\d{6})";
+    string srcIpPortRgxStr = @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:|.)\d*(?= >)";
+    string srcIpRgxStr = @"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?=(.|:)\d* >)";
+    //for AudioCodes (?<=\[Time:)\d{2}-\d{2}(?=@)
+    string dstIpPortRgxStr = @"(?<=> )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:|.)\d*";
+    string dstIpRgxStr = @"(?<=> )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})";
+    //for AudioCodes (?<=\[Time:\d{2}-\d{2}@)\d{2}:\d{2}:\d{2}(?=\])
     string requestRgxStr = @"ACK.*SIP\/2\.0|BYE.*SIP\/2\.0|CANCEL.*SIP\/2\.0|INFO.*SIP\/2\.0|INVITE.*SIP\/2\.0|MESSAGE.*SIP\/2\.0|NOTIFY.*SIP\/2\.0|OPTIONS.*SIP\/2\.0|PRACK.*SIP\/2\.0|PUBLISH.*SIP\/2\.0|REFER.*SIP\/2\.0|REGISTER.*SIP\/2\.0|SUBSCRIBE.*SIP\/2\.0|UPDATE.*SIP\/2\.0|SIP\/2\.0 \d{3}.*";
     string callidRgxStr = @"(?<!-.{8})(?<=Call-ID:).*";
     string toRgxStr = @"(?<=To:).*";
@@ -24,6 +32,13 @@ public class Siplogssh
     string SDPIPRgxStr = @"(?<=c=IN IP4 )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})";
     string mAudioRgxStr = @"m=audio \d* RTP\/AVP \d*";
     string occasRgxStr = @"(?<=Contact: ).*wlssuser";
+    Regex beginmsgRgx;
+    Regex dateRgx;
+    Regex timeRgx;
+    Regex srcIpPortRgx;
+    Regex srcIpRgx;
+    Regex dstIpPortRgx;
+    Regex dstIpRgx;
     Regex requestRgx;
     Regex callidRgx;
     Regex toRgx;
@@ -129,6 +144,8 @@ public class Siplogssh
     int flowSelectPosition;
     int prevMsgCount;
     int IPprevNumSelectMsg;
+    StreamWriter flowFileWriter;
+    bool writeFlowToFile;
 
     static void Main(String[] arg)
     {
@@ -232,17 +249,25 @@ public class Siplogssh
 
     public Siplogssh()
     {
-        requestRgx = new Regex(requestRgxStr); 
-        callidRgx = new Regex(callidRgxStr);
-        toRgx = new Regex(toRgxStr);
-        fromRgx = new Regex(fromRgxStr);
-        uaRgx = new Regex(uaRgxStr);
-        serverRgx = new Regex(serverRgxStr);
-        portRgx = new Regex(portRgxStr);
-        codecRgx = new Regex(codecRgxStr);
-        SDPIPRgx = new Regex(SDPIPRgxStr);
-        mAudioRgx = new Regex(mAudioRgxStr);
-        occasRgx = new Regex(occasRgxStr);
+        Regex.CacheSize = 20;
+        beginmsgRgx = new Regex(beginMsgRgxStr, RegexOptions.Compiled);
+        dateRgx = new Regex(dateRgxStr, RegexOptions.Compiled);
+        timeRgx = new Regex(timeRgxStr, RegexOptions.Compiled);
+        srcIpPortRgx = new Regex(srcIpPortRgxStr, RegexOptions.Compiled);
+        srcIpRgx = new Regex(srcIpRgxStr, RegexOptions.Compiled);
+        dstIpPortRgx = new Regex(dstIpPortRgxStr, RegexOptions.Compiled);
+        dstIpRgx = new Regex(dstIpRgxStr, RegexOptions.Compiled);
+        requestRgx = new Regex(requestRgxStr, RegexOptions.Compiled); 
+        callidRgx = new Regex(callidRgxStr, RegexOptions.Compiled);
+        toRgx = new Regex(toRgxStr, RegexOptions.Compiled);
+        fromRgx = new Regex(fromRgxStr, RegexOptions.Compiled);
+        uaRgx = new Regex(uaRgxStr, RegexOptions.Compiled);
+        serverRgx = new Regex(serverRgxStr, RegexOptions.Compiled);
+        portRgx = new Regex(portRgxStr, RegexOptions.Compiled);
+        codecRgx = new Regex(codecRgxStr, RegexOptions.Compiled);
+        SDPIPRgx = new Regex(SDPIPRgxStr, RegexOptions.Compiled);
+        mAudioRgx = new Regex(mAudioRgxStr, RegexOptions.Compiled);
+        occasRgx = new Regex(occasRgxStr, RegexOptions.Compiled);
         statusBarTxtClr = AttrColor.White;
         statusBarBkgrdClr = AttrColor.Black;
         headerTxtClr = AttrColor.Green;
@@ -294,20 +319,36 @@ public class Siplogssh
 
     void WriteConsole(string line, AttrColor attr,AttrColor bkgrd)
     {
-        WriteScreen(line, (short)fakeCursor[0], (short)fakeCursor[1], attr, bkgrd);
-        fakeCursor[0] = fakeCursor[0] + line.Length;
+        if (writeFlowToFile)
+        {
+            flowFileWriter.Write(line);
+        }
+        else
+        {
+            WriteScreen(line, (short)fakeCursor[0], (short)fakeCursor[1], attr, bkgrd);
+            fakeCursor[0] = fakeCursor[0] + line.Length;
+        }
     }
 
     void WriteLineConsole(string line, AttrColor attr, AttrColor bkgrd)
     {
-        WriteConsole(line + new String(' ', Console.BufferWidth-line.Length)
-            ,  attr, bkgrd);
-        fakeCursor[1]++;
-        fakeCursor[0] = 0;
+        if (writeFlowToFile)
+        {
+            flowFileWriter.WriteLine(line);
+        }
+        else
+        {
+            WriteConsole(line + new String(' ', Console.BufferWidth - line.Length)
+            , attr, bkgrd);
+            fakeCursor[1]++;
+            fakeCursor[0] = 0;
+        }
     }
 
     void ClearConsole()
     {
+        bool iswriteFlowToFileTrue = writeFlowToFile;
+        writeFlowToFile = false;
         int[] prevFakeCursor = new int[2];
         prevFakeCursor = fakeCursor;
         fakeCursor[0] = 0;fakeCursor[1] = 0;
@@ -316,10 +357,13 @@ public class Siplogssh
             WriteLineConsole("", fieldAttrTxtClr, fieldAttrBkgrdClr);
         }
         fakeCursor = prevFakeCursor;
+        writeFlowToFile = iswriteFlowToFileTrue;
     }
 
     void ClearConsoleNoTop()
     {
+        bool iswriteFlowToFileTrue = writeFlowToFile;
+        writeFlowToFile = false;
         int[] prevFakeCursor = new int[2];
         prevFakeCursor = fakeCursor;
         fakeCursor[0] = 0; fakeCursor[1] = 1;
@@ -328,6 +372,7 @@ public class Siplogssh
             WriteLineConsole("", fieldAttrTxtClr, fieldAttrBkgrdClr);
         }
         fakeCursor = prevFakeCursor;
+        writeFlowToFile = iswriteFlowToFileTrue;
     }
 
     void SSHterm()
@@ -629,7 +674,7 @@ public class Siplogssh
         string line = GetNextLine();
         if (line != null)
         {
-            while (!string.IsNullOrEmpty(line) && beginmsg.IsMatch(line))
+            while (!string.IsNullOrEmpty(line) && beginmsgRgx.IsMatch(line))
             {
                 String[] outputarray = new String[17];
                 // get the index of the start of the msg
@@ -641,37 +686,66 @@ public class Siplogssh
                 {
                     outputarray[0] = (streamData.Count - 1).ToString(); 
                 }
-                outputarray[1] = Regex.Match(line, @"(\d{4}-\d{2}-\d{2})").ToString();                                                              //date  
-                //for AudioCodes (?<=\[Time:)\d{2}-\d{2}(?=@)
-                outputarray[2] = Regex.Match(line, @"(\d{2}:\d{2}:\d{2}.\d{6})").ToString();                                                         //time
-                //for AudioCodes (?<=\[Time:\d{2}-\d{2}@)\d{2}:\d{2}:\d{2}(?=\])
-                if (IncludePorts) { outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:|.)\d*(?= >)").ToString(); }
-                else { outputarray[3] = Regex.Match(line, @"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?=(.|:)\d* >)").ToString(); }                               //src IP                                                                        
-                if (IncludePorts) { outputarray[4] = Regex.Match(line, @"(?<=> )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:|.)\d*").ToString(); }
-                else { outputarray[4] = Regex.Match(line, @"(?<=> )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})").ToString(); } 
+                outputarray[1] = dateRgx.Match(line).ToString();    //date  
+                
+                outputarray[2] = timeRgx.Match(line).ToString();     //time
+                
+                if (IncludePorts) { outputarray[3] = srcIpPortRgx.Match(line).ToString(); }
+                else { outputarray[3] = srcIpRgx.Match(line).ToString(); }                               //src IP                                                                        
+                if (IncludePorts) { outputarray[4] = dstIpPortRgx.Match(line).ToString(); }
+                else { outputarray[4] = dstIpRgx.Match(line).ToString(); } 
                 line = GetNextLine();
                 if (line == null) { break; }
                 //check to match these only once. no need match a field if it is already found
                 bool sipTwoDotOfound = false;
+                Match sipTwoDotO;
                 bool callidFound = false;
+                Match callid;
                 bool toFound = false;
+                Match to;
                 bool fromFound = false;
-                bool SDPFopund = false;
+                Match from;
+                bool SDPFopund = false;                
                 bool SDPIPFound = false;
-                bool mAudioFound = false;
+                Match SDPIP;
+                bool mAudioFound = false;                
                 bool uaservfound = false;
-                while (!beginmsg.IsMatch(line)) //untill the begining of the next msg
+                Match ua;
+                Match serv;
+                
+                while (!beginmsgRgx.IsMatch(line)) //untill the begining of the next msg
                 {
-                    if (!sipTwoDotOfound && requestRgx.IsMatch(line))
+                    if (!sipTwoDotOfound && (sipTwoDotO=requestRgx.Match(line))!= Match.Empty)
                     {
-                        outputarray[5] = requestRgx.Match(line).ToString().Trim();
+                        outputarray[5] = sipTwoDotO.ToString().Trim(); 
                         sipTwoDotOfound = true;
                     }
-                    else if (!callidFound && callidRgx.IsMatch(line)) { outputarray[6] = callidRgx.Match(line).ToString().Trim(); callidFound = true; } // get call-id                    
-                    else if (!toFound && toRgx.IsMatch(line)) { outputarray[7] = toRgx.Match(line).ToString().Trim(); toFound = true; } // get to:                    
-                    else if (!fromFound && fromRgx.IsMatch(line)) { outputarray[8] = fromRgx.Match(line).ToString().Trim(); fromFound = true; } //get from                    
-                    else if (!SDPFopund && line.Contains("Content-Type: application/sdp")) { outputarray[11] = " SDP"; SDPFopund = true; }
-                    else if (!SDPIPFound && SDPIPRgx.IsMatch(line)) { outputarray[13] = SDPIPRgx.Match(line).ToString(); SDPIPFound = true; }
+                    else if (!callidFound && (callid = callidRgx.Match(line))!= Match.Empty) 
+                    //else if (!callidFound && callidRgx.IsMatch(line)) 
+                    {
+                        outputarray[6] = callidRgx.Match(line).ToString().Trim();
+                        callidFound = true;
+                    } // get call-id                    
+                    else if (!toFound && (to=toRgx.Match(line))!= Match.Empty)
+                    {
+                        outputarray[7] = to.ToString().Trim();
+                        toFound = true;
+                    } // get to:                    
+                    else if (!fromFound && (from=fromRgx.Match(line))!= Match.Empty)
+                    {
+                        outputarray[8] = from.ToString().Trim();
+                        fromFound = true;
+                    } //get from                    
+                    else if (!SDPFopund && line.Contains("Content-Type: application/sdp"))
+                    {
+                        outputarray[11] = " SDP";
+                        SDPFopund = true;
+                    }
+                    else if (!SDPIPFound && (SDPIP=SDPIPRgx.Match(line)) != Match.Empty)
+                    {
+                        outputarray[13] = SDPIP.ToString();
+                        SDPIPFound = true;
+                    }
                     else if (!mAudioFound && mAudioRgx.IsMatch(line))
                     {
                         outputarray[14] = portRgx.Match(line).ToString().Trim();
@@ -683,14 +757,14 @@ public class Siplogssh
                         else { outputarray[15] = "rtp-payload type:" + outputarray[15]; }
                         mAudioFound = true;
                     }
-                    else if (!uaservfound && uaRgx.IsMatch(line))
+                    else if (!uaservfound && (ua=uaRgx.Match(line))!= Match.Empty)
                     {
-                        outputarray[16] = uaRgx.Match(line).ToString().Trim();
+                        outputarray[16] = ua.ToString().Trim();
                         uaservfound = true;
                     }
-                    else if (!uaservfound && serverRgx.IsMatch(line))
+                    else if (!uaservfound && (serv=serverRgx.Match(line))!= Match.Empty)
                     {
-                        outputarray[16] = serverRgx.Match(line).ToString().Trim();
+                        outputarray[16] = serv.ToString().Trim();
                         uaservfound = true;
                     }
                     else if (!uaservfound && occasRgx.IsMatch(line))
@@ -1171,11 +1245,14 @@ public class Siplogssh
                     {
                         Console.ForegroundColor = ConsoleColor.White;
                         Console.CursorTop = Console.CursorTop - 1;
-                        Console.WriteLine("  | No calls found. Press any key to continue");
+                        Console.CursorLeft = center;
+                        Console.WriteLine("| No calls found. Press any key to continue");
                         Console.ForegroundColor = fieldConsoleTxtClr; 
                         Console.CursorVisible = true;
                         Console.ReadKey(true);
                         Console.CursorTop -= 3;
+                        filter[0] = null;
+                        CallFilter();
                     }
                     Console.BackgroundColor = fieldConsoleBkgrdClr;  //change the colors of the current postion to normal
                     Console.ForegroundColor = fieldConsoleTxtClr;
@@ -1232,7 +1309,8 @@ public class Siplogssh
                     {
                         Console.ForegroundColor = ConsoleColor.White;
                         Console.CursorTop = Console.CursorTop - 1;
-                        Console.WriteLine("  | No file name was entered. Press any key to continue");
+                        Console.CursorLeft = center;
+                        Console.WriteLine("| No file name was entered. Press any key to continue");
                         Console.ForegroundColor = fieldConsoleTxtClr;
                         Console.CursorVisible = true;
                         Console.ReadKey(true);
@@ -1815,7 +1893,65 @@ public class Siplogssh
                 flowSelectPosition = 0;
                 Flow(false);  //display call flow Diagram
             }
-                
+            if (keypress.Key == ConsoleKey.O)
+            {
+                lock (_locker)
+                {
+                    Console.ForegroundColor = msgBoxTxt;
+                    Console.BackgroundColor = msgBoxBkgrd;
+                    int center = Math.Max(0, (int)Math.Floor((decimal)((Console.WindowWidth - 136) / 2)));
+                    Console.CursorLeft = center; Console.WriteLine(@"+-------------------------------------------------------------------+\ ");
+                    Console.CursorLeft = center; Console.WriteLine(@"| Enter the file name to the data will be writen to:                | |");
+                    Console.CursorLeft = center; Console.WriteLine(@"|                                                                   | |");
+                    Console.CursorLeft = center; Console.WriteLine(@"+-------------------------------------------------------------------+ |");
+                    Console.CursorLeft = center; Console.WriteLine(@" \___________________________________________________________________\|");
+                    Console.CursorTop -= 3;
+                    Console.CursorLeft = center + 2;
+                    string writeFileName = Console.ReadLine();
+                    if (String.IsNullOrEmpty(writeFileName))
+                    {
+                        Console.ForegroundColor = ConsoleColor.White;
+                        Console.CursorTop = Console.CursorTop - 1;
+                        Console.CursorLeft = center;
+                        Console.WriteLine("| No file name was entered. Press any key to continue");
+                        Console.ForegroundColor = fieldConsoleTxtClr;
+                        Console.CursorVisible = true;
+                        Console.ReadKey(true);
+                        Console.CursorTop -= 4;
+                    }
+                    else
+                    {
+                        
+                        try
+                        {
+                            // Attempt to open output file.
+                            flowFileWriter = new StreamWriter(writeFileName);
+                        }
+                        catch (IOException e)
+                        {
+                            TextWriter errorWriter = Console.Error;
+                            errorWriter.WriteLine(e.Message);
+                        }
+                        writeFlowToFile = true;
+                        Flow(false);  //display call flow Diagram
+                        flowFileWriter.WriteLine(" ");
+                        flowFileWriter.WriteLine(" ");
+                        for (int i=0;i< selectedmessages.Count;i++)
+                        {
+                            DisplayMessage(i, selectedmessages);
+                        }
+                        writeFlowToFile = false;
+                        flowFileWriter.Close();
+                        // Recover the standard output stream so that a 
+                        // completion message can be displayed.
+                        StreamWriter standardOutput = new StreamWriter(Console.OpenStandardOutput());
+                        standardOutput.AutoFlush = true;
+                        Console.SetOut(standardOutput);
+                    }
+                    Flow(false);  //display call flow Diagram
+                }
+            }
+
         }
         return;
     }
@@ -1849,26 +1985,47 @@ public class Siplogssh
                     }
                     line = sr.ReadLine();
                 }
-                Console.WriteLine();
-                Console.WriteLine(line);
-                for (int j = msgStartIdx; j < msgEndIdx; j++)
+                if (writeFlowToFile)
                 {
-                    Console.WriteLine(sr.ReadLine());
+                    flowFileWriter.WriteLine(line);
+                }
+                else
+                { 
+                    Console.WriteLine();
+                    Console.WriteLine(line);
+                }
+                for (int j = msgStartIdx; j < msgEndIdx-1; j++)
+                {
+                    if (writeFlowToFile)
+                    {
+                        flowFileWriter.WriteLine(sr.ReadLine());
+                    }
+                    else
+                    {
+                        Console.WriteLine(sr.ReadLine());
+                    }
                 }
                 sr.Close();
             }
         }
         else
         {
-            for (int i = msgStartIdx; i <= msgEndIdx; i++)
+            for (int i = msgStartIdx; i <= msgEndIdx-1; i++)
             {
-                Console.WriteLine(streamData[i]);
+                if (writeFlowToFile)
+                {
+                    flowFileWriter.WriteLine(streamData[i]);
+                }
+                else
+                {
+                    Console.WriteLine(streamData[i]);
+                }
             }
         }
         Console.SetCursorPosition(0, 1);
         fakeCursor[0] = 0; fakeCursor[1] = 1;
         ConsoleKeyInfo keypressed;
-        while (!((keypressed = Console.ReadKey(true)).Key == ConsoleKey.Escape))
+        while (!writeFlowToFile && !((keypressed = Console.ReadKey(true)).Key == ConsoleKey.Escape) )
         {
             if (Console.CursorTop < Console.BufferHeight - 1 && keypressed.Key == ConsoleKey.DownArrow)
             {
