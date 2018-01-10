@@ -225,11 +225,11 @@ public class Siplogssh
         try
         {
             float version = 1.01f;
+            string dotNetVersion = Environment.Version.ToString();
             Siplogssh sIPlogSSHObj = new Siplogssh();            
             if (Console.BufferWidth < 200) { Console.BufferWidth = 200; }
             Console.Clear();
-            Console.SetCursorPosition(0, 0);
-            Console.WriteLine();
+            Console.SetCursorPosition(0, 0); Console.WriteLine();
             Console.WriteLine(@"     _____ _____ ____  _              _____ _____ _    _  ");
             Console.WriteLine(@"    / ____|_   _| __ \| |            / ____/ ____| |  | | ");
             Console.WriteLine(@"   | (___   | | | __) | | ___   __ _| (___| (___ | |__| | ");
@@ -239,7 +239,14 @@ public class Siplogssh
             Console.WriteLine(@"                                __/ |                     ");
             Console.WriteLine(@"                               |___/                      ");
             Console.WriteLine("   Version {0}                               Greg Palmer", version.ToString());
-            for(int i=0; i < arg.Length ;i++)  //check for options
+            if (!Regex.IsMatch(dotNetVersion,@"^4\."))
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine(@"SIPlog requires .NET 4 runtime https://www.microsoft.com/net/download/windows");
+                Console.ForegroundColor = ConsoleColor.Gray;
+                Environment.Exit(1);
+            }
+            for (int i=0; i < arg.Length ;i++)  //check for options
             {
                 if (arg[i] == "-p") { sIPlogSSHObj.IncludePorts = true; }
                 if (arg[i] == "-v")
@@ -613,6 +620,7 @@ public class Siplogssh
                         Server = null;
                         PortStr = null;
                         Username = null;
+                        passwd = null;
                         tryConnectAgain = true;
                         tryBannerAgain = true;
                     }
@@ -706,11 +714,11 @@ public class Siplogssh
                         ReadData(file);
                     }
                 }
-
                 lock (_locker)
                 {
                     messages = messages.OrderBy(theDate => theDate[1]).ThenBy(Time => Time[2]).ToList();
                 }
+                fileSread.Close();
             }
         }
         lock (_locker)
@@ -1213,7 +1221,6 @@ public class Siplogssh
                 {
                     Console.SetWindowPosition(0, 0);
                 }
-
             }
             if (callLegsDisplayed.Count > 0 && keypressed.Key == ConsoleKey.Spacebar)
             {
@@ -1352,6 +1359,8 @@ public class Siplogssh
             }
             if (!fileMode && keypressed.Key == ConsoleKey.T)
             {
+                Console.ForegroundColor = ConsoleColor.Gray;
+                Console.BackgroundColor = ConsoleColor.Black;
                 Console.Clear();
                 for (int i = Math.Max(0, streamData.Count - 40); i < streamData.Count; i++)
                 {
@@ -1368,6 +1377,11 @@ public class Siplogssh
                     {
                         Monitor.Wait(_locker);
                     }
+                    CallListPosition = 0;
+                    CallFilter();
+                    CallDisplay(true);
+                    Console.SetWindowPosition(0, 0);
+                    Console.SetCursorPosition(0, 4);
                 }
             }
             if (!fileMode && keypressed.Key == ConsoleKey.W)
@@ -1530,7 +1544,6 @@ public class Siplogssh
         {
             callLegsDisplayed = callLegsDisplayed.OrderBy(field => field[Int16.Parse(sortFields[callsDisplaysortIdx, 2])]).ToList();
             CallListPosition = 0;
-            
         }
     }
 
@@ -1574,7 +1587,6 @@ public class Siplogssh
                 if (callcolor == CallLegColors.DarkMagenta) { callcolor = CallLegColors.Green; } else { callcolor++; }
             }
         }
-        
     }
 
     void GetIps()
@@ -1839,7 +1851,6 @@ public class Siplogssh
         {
             string firstline = message[5].Replace("SIP/2.0 ", "");
             string displayedline = firstline.Substring(0, Math.Min(18, firstline.Length)) + message[11];
-
             string space = new String(' ', 28) + "|";
             if (srcindx == 0)
             {
@@ -2146,7 +2157,6 @@ public class Siplogssh
                     }
                     line = sr.ReadLine();
                 }
-                
                 if (writeFlowToFile)
                 {
                     flowFileWriter.WriteLine(line);
@@ -2402,32 +2412,7 @@ public class ConsoleBuffer
         WriteConsoleOutputAttribute(_hBuffer, attrs, length, new Coord(x, y), ref n);
     }
 
-    public static void ClearArea(short left, short top, short width, short height, char ch = ' ')
-    {
-        ClearArea(left, top, width, height, new CharInfo() { Char = new CharUnion() { UnicodeChar = ch } });
-    }
-
-    public static void ClearArea(short left, short top, short width, short height)
-    {
-        ClearArea(left, top, width, height, new CharInfo() { Char = new CharUnion() { AsciiChar = 32 } });
-    }
-
-    private static void ClearArea(short left, short top, short width, short height, CharInfo charAttr)
-    {
-        CharInfo[] buf = new CharInfo[width * height];
-        for (int i = 0; i < buf.Length; ++i)
-        {
-            buf[i] = charAttr;
-        }
-
-        SmallRect rect = new SmallRect() { Left = left, Top = top, Right = (short)(left + width), Bottom = (short)(top + height) };
-        WriteConsoleOutput(_hBuffer, buf,
-          new Coord() { X = width, Y = height },
-          new Coord() { X = 0, Y = 0 },
-          ref rect);
-    }
-
-
+   
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern SafeFileHandle GetStdHandle(int nStdHandle);
 
