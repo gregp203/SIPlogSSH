@@ -354,7 +354,7 @@ public class Siplogssh
         string displayLine;
         if (line.Length > 1)
         {
-            displayLine = line + new String(' ', Console.BufferWidth - line.Length);
+            displayLine = line + new String(' ', Math.Max(Console.BufferWidth - line.Length,0));
         }
         else
         {
@@ -669,6 +669,7 @@ public class Siplogssh
         
     void FileReader(string[] filenames)
     {
+        int fileNum=0;
         if (filenames.Length == 0)
         {
             Console.ForegroundColor = ConsoleColor.White;
@@ -686,7 +687,8 @@ public class Siplogssh
         }
         foreach (string file in filenames)
         {
-            if(!Regex.IsMatch(file, @"^-\w\b"))
+            fileNum++;
+            if (!Regex.IsMatch(file, @"^-\w\b"))
             {
                 currentFileLoadLeng = 0;
                 currentFileLoadProg = 0;
@@ -705,7 +707,7 @@ public class Siplogssh
                         }
                     }
                     sr.Close();
-                    TopLine(" Reading " + currentFileLoadLeng + " lines of File : " + file, (short)(x));
+                    TopLine(" Reading " + currentFileLoadLeng + " lines of File "+ fileNum+"/"+filenames.Length+" : " + file, (short)(x));
                 }
                 using (fileSread = new StreamReader(file))
                 {
@@ -714,17 +716,21 @@ public class Siplogssh
                         ReadData(file);
                     }
                 }
+                fileSread.Close();
                 lock (_locker)
                 {
                     messages = messages.OrderBy(theDate => theDate[1]).ThenBy(Time => Time[2]).ToList();
                 }
-                fileSread.Close();
+                
             }
         }
         lock (_locker)
         {
             TopLine("Done reading all files " + string.Join(" ", filenames), 0);
             SortCalls();
+            CallDisplay(true);
+            Console.SetWindowPosition(0, 0);
+            Console.SetCursorPosition(0, 4);
             fileReadDone = true;
         }
     }
@@ -952,7 +958,8 @@ public class Siplogssh
         else
         {
            if (fileMode) { UpdateFileLoadProgress(); }  
-        }        
+        }
+        line = null;
     }    
 
     void UpdateFileLoadProgress()
